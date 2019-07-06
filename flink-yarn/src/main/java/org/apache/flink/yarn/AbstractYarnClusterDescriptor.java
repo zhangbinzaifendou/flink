@@ -631,7 +631,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// Copy the application master jar to the filesystem
 		// Create a local resource to point to the destination jar path
 		final FileSystem fs = FileSystem.get(yarnConfiguration);
-		final Path homeDir = fs.getHomeDirectory();
+		final Path homeDir = getAppStagingDir(configuration, fs);
 
 		// hard coded check for the GoogleHDFS client because its not overriding the getScheme() method.
 		if (!fs.getClass().getSimpleName().equals("GoogleHadoopFileSystem") &&
