@@ -1020,7 +1020,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		Path homeDir = null;
 		String appStagingDir = flinkConf.getString(APPLICATION_STAGINGDIR,"");
 		if(StringUtils.isNotBlank(appStagingDir)) {
-			homeDir = new Path(fileSystem.getUri().toString() + appStagingDir);
+			homeDir = new Path(appStagingDir);
 		} else {
 			homeDir = fileSystem.getHomeDirectory();
 		}
