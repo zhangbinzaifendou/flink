@@ -18,7 +18,6 @@
 
 package org.apache.flink.yarn;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.client.deployment.ClusterDeploymentException;
 import org.apache.flink.client.deployment.ClusterDescriptor;
@@ -46,6 +45,7 @@ import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.ShutdownHookUtil;
 import org.apache.flink.yarn.configuration.YarnConfigOptions;
+
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsAction;
@@ -74,6 +74,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -1054,8 +1055,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 	private Path getAppStagingDir(Configuration flinkConf, FileSystem fileSystem) throws IOException {
 		Path homeDir = null;
-		String appStagingDir = flinkConf.getString(APPLICATION_STAGINGDIR,"");
-		if(StringUtils.isNotBlank(appStagingDir)) {
+		String appStagingDir = flinkConf.getString(APPLICATION_STAGINGDIR, "");
+		if (appStagingDir != null && appStagingDir.trim().length() > 0) {
 			homeDir = new Path(appStagingDir);
 		} else {
 			homeDir = fileSystem.getHomeDirectory();
