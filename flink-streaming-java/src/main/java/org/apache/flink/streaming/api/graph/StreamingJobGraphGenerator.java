@@ -514,6 +514,10 @@ public class StreamingJobGraphGenerator {
 			case BATCH:
 				resultPartitionType = ResultPartitionType.BLOCKING;
 				break;
+			case UNDEFINED:
+				resultPartitionType = streamGraph.isBlockingConnectionsBetweenChains() ?
+						ResultPartitionType.BLOCKING : ResultPartitionType.PIPELINED_BOUNDED;
+				break;
 			default:
 				throw new UnsupportedOperationException("Data exchange mode " +
 					edge.getShuffleMode() + " is not supported yet.");

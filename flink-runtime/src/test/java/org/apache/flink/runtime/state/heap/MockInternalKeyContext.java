@@ -7,7 +7,7 @@
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +16,21 @@
  * limitations under the License.
  */
 
-package org.apache.flink.table.catalog.hive;
+package org.apache.flink.runtime.state.heap;
+
+import org.apache.flink.runtime.state.KeyGroupRange;
 
 /**
- * Configs for partition in {@link HiveCatalog}.
+ * Mock {@link InternalKeyContext}.
  */
-public class HivePartitionConfig {
-	public static final String PARTITION_LOCATION = "partition.location";
+public class MockInternalKeyContext<K> extends InternalKeyContextImpl<K> {
+	MockInternalKeyContext() {
+		super(new KeyGroupRange(0, 0), 1);
+	}
 
+	@Override
+	public void setCurrentKey(K key) {
+		super.setCurrentKey(key);
+		super.setCurrentKeyGroupIndex(0);
+	}
 }
