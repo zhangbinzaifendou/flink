@@ -20,7 +20,6 @@
 package org.apache.flink.runtime.executiongraph;
 
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
-import org.apache.flink.runtime.akka.AkkaUtils;
 import org.apache.flink.runtime.checkpoint.CheckpointCoordinator;
 import org.apache.flink.runtime.checkpoint.CheckpointRetentionPolicy;
 import org.apache.flink.runtime.checkpoint.CheckpointStatsTracker;
@@ -31,16 +30,16 @@ import org.apache.flink.runtime.concurrent.ComponentMainThreadExecutorServiceAda
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutor;
 import org.apache.flink.runtime.execution.ExecutionState;
 import org.apache.flink.runtime.executiongraph.failover.AdaptedRestartPipelinedRegionStrategyNG;
-import org.apache.flink.runtime.executiongraph.restart.InfiniteDelayRestartStrategy;
+import org.apache.flink.runtime.executiongraph.restart.FixedDelayRestartStrategy;
 import org.apache.flink.runtime.executiongraph.utils.SimpleSlotProvider;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobVertex;
 import org.apache.flink.runtime.jobgraph.ScheduleMode;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.CheckpointCoordinatorConfiguration;
+import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.runtime.taskmanager.TaskExecutionState;
-import org.apache.flink.runtime.testingUtils.TestingUtils;
 import org.apache.flink.util.TestLogger;
 
 import org.junit.Before;
@@ -53,8 +52,8 @@ import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkState;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
 /**
@@ -78,27 +77,41 @@ public class AdaptedRestartPipelinedRegionStrategyNGAbortPendingCheckpointsTest 
 		final ExecutionGraph executionGraph = createExecutionGraph(jobGraph);
 
 		final Iterator<ExecutionVertex> vertexIterator = executionGraph.getAllExecutionVertices().iterator();
-		final ExecutionVertex onlyExecutionVertex = vertexIterator.next();
+		final ExecutionVertex firstExecutionVertex = vertexIterator.next();
 
-		setTaskRunning(executionGraph, onlyExecutionVertex);
+		setTasksRunning(executionGraph, firstExecutionVertex, vertexIterator.next());
 
 		final CheckpointCoordinator checkpointCoordinator = executionGraph.getCheckpointCoordinator();
 		checkState(checkpointCoordinator != null);
 
 		checkpointCoordinator.triggerCheckpoint(System.currentTimeMillis(),  false);
-		final int pendingCheckpointsBeforeFailure = checkpointCoordinator.getNumberOfPendingCheckpoints();
+		assertEquals(1, checkpointCoordinator.getNumberOfPendingCheckpoints());
+		long checkpointId = checkpointCoordinator.getPendingCheckpoints().keySet().iterator().next();
 
-		failVertex(onlyExecutionVertex);
+		AcknowledgeCheckpoint acknowledgeCheckpoint = new AcknowledgeCheckpoint(
+			jobGraph.getJobID(),
+			firstExecutionVertex.getCurrentExecutionAttempt().getAttemptId(),
+			checkpointId);
 
-		assertThat(pendingCheckpointsBeforeFailure, is(equalTo(1)));
+		// let the first vertex acknowledge the checkpoint, and fail it afterwards
+		// the failover strategy should then cancel all pending checkpoints on restart
+		checkpointCoordinator.receiveAcknowledgeMessage(acknowledgeCheckpoint, "Unknown location");
+		assertEquals(1, checkpointCoordinator.getNumberOfPendingCheckpoints());
+
+		failVertex(firstExecutionVertex);
+		assertEquals(1, checkpointCoordinator.getNumberOfPendingCheckpoints());
+		manualMainThreadExecutor.triggerScheduledTasks();
+
 		assertNoPendingCheckpoints(checkpointCoordinator);
 	}
 
-	private void setTaskRunning(final ExecutionGraph executionGraph, final ExecutionVertex executionVertex) {
-		executionGraph.updateState(
-			new TaskExecutionState(executionGraph.getJobID(),
-				executionVertex.getCurrentExecutionAttempt().getAttemptId(),
-				ExecutionState.RUNNING));
+	private void setTasksRunning(final ExecutionGraph executionGraph, final ExecutionVertex... executionVertices) {
+		for (ExecutionVertex executionVertex : executionVertices) {
+			executionGraph.updateState(
+				new TaskExecutionState(executionGraph.getJobID(),
+					executionVertex.getCurrentExecutionAttempt().getAttemptId(),
+					ExecutionState.RUNNING));
+		}
 	}
 
 	private void failVertex(final ExecutionVertex onlyExecutionVertex) {
@@ -108,29 +121,24 @@ public class AdaptedRestartPipelinedRegionStrategyNGAbortPendingCheckpointsTest 
 
 	private static JobGraph createStreamingJobGraph() {
 		final JobVertex v1 = new JobVertex("vertex1");
+		final JobVertex v2 = new JobVertex("vertex2");
 		v1.setInvokableClass(AbstractInvokable.class);
+		v2.setInvokableClass(AbstractInvokable.class);
 
-		final JobGraph jobGraph = new JobGraph(v1);
+		final JobGraph jobGraph = new JobGraph(v1, v2);
 		jobGraph.setScheduleMode(ScheduleMode.EAGER);
 
 		return jobGraph;
 	}
 
 	private ExecutionGraph createExecutionGraph(final JobGraph jobGraph) throws Exception {
-		final ExecutionGraph executionGraph = new ExecutionGraph(
-			new DummyJobInformation(
-				jobGraph.getJobID(),
-				jobGraph.getName()),
-			TestingUtils.defaultExecutor(),
-			TestingUtils.defaultExecutor(),
-			AkkaUtils.getDefaultTimeout(),
-			new InfiniteDelayRestartStrategy(10),
-			AdaptedRestartPipelinedRegionStrategyNG::new,
-			new SimpleSlotProvider(jobGraph.getJobID(), 1));
+		final ExecutionGraph executionGraph = new ExecutionGraphTestUtils.TestingExecutionGraphBuilder(jobGraph)
+			.setRestartStrategy(new FixedDelayRestartStrategy(10, 0))
+			.setFailoverStrategyFactory(AdaptedRestartPipelinedRegionStrategyNG::new)
+			.setSlotProvider(new SimpleSlotProvider(jobGraph.getJobID(), 2))
+			.build();
 
-		executionGraph.attachJobGraph(jobGraph.getVerticesSortedTopologicallyFromSources());
 		enableCheckpointing(executionGraph);
-		executionGraph.setScheduleMode(jobGraph.getScheduleMode());
 		executionGraph.start(componentMainThreadExecutor);
 		executionGraph.scheduleForExecution();
 		manualMainThreadExecutor.triggerAll();

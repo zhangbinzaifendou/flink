@@ -25,6 +25,7 @@ import org.apache.flink.table.catalog.exceptions.TableNotExistException;
 import org.apache.flink.table.factories.TableFactory;
 import org.apache.flink.table.factories.TableFactoryUtil;
 import org.apache.flink.table.factories.TableSourceFactory;
+import org.apache.flink.table.plan.schema.TableSinkTable;
 import org.apache.flink.table.plan.schema.TableSourceTable;
 import org.apache.flink.table.plan.stats.FlinkStatistic;
 import org.apache.flink.table.sources.StreamTableSource;
@@ -51,11 +52,17 @@ import static java.lang.String.format;
  * Tables are registered as tables in the schema.
  */
 class DatabaseCalciteSchema implements Schema {
+	private final boolean isStreamingMode;
 	private final String databaseName;
 	private final String catalogName;
 	private final Catalog catalog;
 
-	public DatabaseCalciteSchema(String databaseName, String catalogName, Catalog catalog) {
+	public DatabaseCalciteSchema(
+			boolean isStreamingMode,
+			String databaseName,
+			String catalogName,
+			Catalog catalog) {
+		this.isStreamingMode = isStreamingMode;
 		this.databaseName = databaseName;
 		this.catalogName = catalogName;
 		this.catalog = catalog;
@@ -94,12 +101,25 @@ class DatabaseCalciteSchema implements Schema {
 	}
 
 	private Table convertConnectorTable(ConnectorCatalogTable<?, ?> table) {
-		return table.getTableSource()
+		Optional<TableSourceTable> tableSourceTable = table.getTableSource()
 			.map(tableSource -> new TableSourceTable<>(
 				tableSource,
 				!table.isBatch(),
-				FlinkStatistic.UNKNOWN()))
-			.orElseThrow(() -> new TableException("Cannot query a sink only table."));
+				FlinkStatistic.UNKNOWN()));
+		if (tableSourceTable.isPresent()) {
+			return tableSourceTable.get();
+		} else {
+			Optional<TableSinkTable> tableSinkTable = table.getTableSink()
+				.map(tableSink -> new TableSinkTable<>(
+					tableSink,
+					FlinkStatistic.UNKNOWN()));
+			if (tableSinkTable.isPresent()) {
+				return tableSinkTable.get();
+			} else {
+				throw new TableException("Cannot convert a connector table " +
+					"without either source or sink.");
+			}
+		}
 	}
 
 	private Table convertCatalogTable(ObjectPath tablePath, CatalogTable table) {
@@ -126,7 +146,7 @@ class DatabaseCalciteSchema implements Schema {
 			// this means the TableSource extends from StreamTableSource, this is needed for the
 			// legacy Planner. Blink Planner should use the information that comes from the TableSource
 			// itself to determine if it is a streaming or batch source.
-			true,
+			isStreamingMode,
 			FlinkStatistic.UNKNOWN()
 		);
 	}

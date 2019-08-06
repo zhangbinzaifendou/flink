@@ -27,9 +27,10 @@ import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemoryType;
 import org.apache.flink.runtime.io.network.netty.NettyConfig;
+import org.apache.flink.runtime.io.network.partition.BoundedBlockingSubpartitionType;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
-
 import org.apache.flink.util.Preconditions;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +38,7 @@ import javax.annotation.Nullable;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.time.Duration;
 import java.util.Arrays;
 
 /**
@@ -59,6 +61,8 @@ public class NettyShuffleEnvironmentConfiguration {
 	/** Number of extra network buffers to use for each outgoing/incoming gate (result partition/input gate). */
 	private final int floatingNetworkBuffersPerGate;
 
+	private final Duration requestSegmentsTimeout;
+
 	private final boolean isCreditBased;
 
 	private final boolean isNetworkDetailedMetrics;
@@ -67,6 +71,10 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	private final String[] tempDirs;
 
+	private final BoundedBlockingSubpartitionType blockingSubpartitionType;
+
+	private final boolean forcePartitionReleaseOnConsumption;
+
 	public NettyShuffleEnvironmentConfiguration(
 			int numNetworkBuffers,
 			int networkBufferSize,
@@ -74,10 +82,13 @@ public class NettyShuffleEnvironmentConfiguration {
 			int partitionRequestMaxBackoff,
 			int networkBuffersPerChannel,
 			int floatingNetworkBuffersPerGate,
+			Duration requestSegmentsTimeout,
 			boolean isCreditBased,
 			boolean isNetworkDetailedMetrics,
 			@Nullable NettyConfig nettyConfig,
-			String[] tempDirs) {
+			String[] tempDirs,
+			BoundedBlockingSubpartitionType blockingSubpartitionType,
+			boolean forcePartitionReleaseOnConsumption) {
 
 		this.numNetworkBuffers = numNetworkBuffers;
 		this.networkBufferSize = networkBufferSize;
@@ -85,10 +96,13 @@ public class NettyShuffleEnvironmentConfiguration {
 		this.partitionRequestMaxBackoff = partitionRequestMaxBackoff;
 		this.networkBuffersPerChannel = networkBuffersPerChannel;
 		this.floatingNetworkBuffersPerGate = floatingNetworkBuffersPerGate;
+		this.requestSegmentsTimeout = Preconditions.checkNotNull(requestSegmentsTimeout);
 		this.isCreditBased = isCreditBased;
 		this.isNetworkDetailedMetrics = isNetworkDetailedMetrics;
 		this.nettyConfig = nettyConfig;
 		this.tempDirs = Preconditions.checkNotNull(tempDirs);
+		this.blockingSubpartitionType = Preconditions.checkNotNull(blockingSubpartitionType);
+		this.forcePartitionReleaseOnConsumption = forcePartitionReleaseOnConsumption;
 	}
 
 	// ------------------------------------------------------------------------
@@ -117,6 +131,10 @@ public class NettyShuffleEnvironmentConfiguration {
 		return floatingNetworkBuffersPerGate;
 	}
 
+	public Duration getRequestSegmentsTimeout() {
+		return requestSegmentsTimeout;
+	}
+
 	public NettyConfig nettyConfig() {
 		return nettyConfig;
 	}
@@ -131,6 +149,14 @@ public class NettyShuffleEnvironmentConfiguration {
 
 	public String[] getTempDirs() {
 		return tempDirs;
+	}
+
+	public BoundedBlockingSubpartitionType getBlockingSubpartitionType() {
+		return blockingSubpartitionType;
+	}
+
+	public boolean isForcePartitionReleaseOnConsumption() {
+		return forcePartitionReleaseOnConsumption;
 	}
 
 	// ------------------------------------------------------------------------
@@ -171,6 +197,14 @@ public class NettyShuffleEnvironmentConfiguration {
 
 		String[] tempDirs = ConfigurationUtils.parseTempDirectories(configuration);
 
+		Duration requestSegmentsTimeout = Duration.ofMillis(configuration.getLong(
+				NettyShuffleEnvironmentOptions.NETWORK_EXCLUSIVE_BUFFERS_REQUEST_TIMEOUT_MILLISECONDS));
+
+		BoundedBlockingSubpartitionType blockingSubpartitionType = getBlockingSubpartitionType(configuration);
+
+		boolean forcePartitionReleaseOnConsumption =
+			configuration.getBoolean(NettyShuffleEnvironmentOptions.FORCE_PARTITION_RELEASE_ON_CONSUMPTION);
+
 		return new NettyShuffleEnvironmentConfiguration(
 			numberOfNetworkBuffers,
 			pageSize,
@@ -178,10 +212,13 @@ public class NettyShuffleEnvironmentConfiguration {
 			maxRequestBackoff,
 			buffersPerChannel,
 			extraBuffersPerGate,
+			requestSegmentsTimeout,
 			isCreditBased,
 			isNetworkDetailedMetrics,
 			nettyConfig,
-			tempDirs);
+			tempDirs,
+			blockingSubpartitionType,
+			forcePartitionReleaseOnConsumption);
 	}
 
 	/**
@@ -468,6 +505,19 @@ public class NettyShuffleEnvironmentConfiguration {
 		return nettyConfig;
 	}
 
+	private static BoundedBlockingSubpartitionType getBlockingSubpartitionType(Configuration config) {
+		String transport = config.getString(NettyShuffleEnvironmentOptions.NETWORK_BOUNDED_BLOCKING_SUBPARTITION_TYPE);
+
+		switch (transport) {
+			case "mmap":
+				return BoundedBlockingSubpartitionType.FILE_MMAP;
+			case "file":
+				return BoundedBlockingSubpartitionType.FILE;
+			default:
+				return BoundedBlockingSubpartitionType.AUTO;
+		}
+	}
+
 	// ------------------------------------------------------------------------
 
 	@Override
@@ -479,9 +529,11 @@ public class NettyShuffleEnvironmentConfiguration {
 		result = 31 * result + partitionRequestMaxBackoff;
 		result = 31 * result + networkBuffersPerChannel;
 		result = 31 * result + floatingNetworkBuffersPerGate;
+		result = 31 * result + requestSegmentsTimeout.hashCode();
 		result = 31 * result + (isCreditBased ? 1 : 0);
 		result = 31 * result + (nettyConfig != null ? nettyConfig.hashCode() : 0);
 		result = 31 * result + Arrays.hashCode(tempDirs);
+		result = 31 * result + (forcePartitionReleaseOnConsumption ? 1 : 0);
 		return result;
 	}
 
@@ -502,9 +554,11 @@ public class NettyShuffleEnvironmentConfiguration {
 					this.partitionRequestMaxBackoff == that.partitionRequestMaxBackoff &&
 					this.networkBuffersPerChannel == that.networkBuffersPerChannel &&
 					this.floatingNetworkBuffersPerGate == that.floatingNetworkBuffersPerGate &&
+					this.requestSegmentsTimeout.equals(that.requestSegmentsTimeout) &&
 					this.isCreditBased == that.isCreditBased &&
 					(nettyConfig != null ? nettyConfig.equals(that.nettyConfig) : that.nettyConfig == null) &&
-					Arrays.equals(this.tempDirs, that.tempDirs);
+					Arrays.equals(this.tempDirs, that.tempDirs) &&
+					this.forcePartitionReleaseOnConsumption == that.forcePartitionReleaseOnConsumption;
 		}
 	}
 
@@ -517,9 +571,11 @@ public class NettyShuffleEnvironmentConfiguration {
 				", partitionRequestMaxBackoff=" + partitionRequestMaxBackoff +
 				", networkBuffersPerChannel=" + networkBuffersPerChannel +
 				", floatingNetworkBuffersPerGate=" + floatingNetworkBuffersPerGate +
+				", requestSegmentsTimeout=" + requestSegmentsTimeout +
 				", isCreditBased=" + isCreditBased +
 				", nettyConfig=" + nettyConfig +
 				", tempDirs=" + Arrays.toString(tempDirs) +
+				", forcePartitionReleaseOnConsumption=" + forcePartitionReleaseOnConsumption +
 				'}';
 	}
 }

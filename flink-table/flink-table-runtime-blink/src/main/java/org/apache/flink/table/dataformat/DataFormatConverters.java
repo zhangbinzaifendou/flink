@@ -30,19 +30,19 @@ import org.apache.flink.api.java.typeutils.TupleTypeInfoBase;
 import org.apache.flink.api.java.typeutils.runtime.TupleSerializerBase;
 import org.apache.flink.table.api.DataTypes;
 import org.apache.flink.table.runtime.functions.SqlDateTimeUtils;
+import org.apache.flink.table.runtime.types.InternalSerializers;
+import org.apache.flink.table.runtime.types.LogicalTypeDataTypeConverter;
+import org.apache.flink.table.runtime.typeutils.BigDecimalTypeInfo;
+import org.apache.flink.table.runtime.typeutils.BinaryStringTypeInfo;
+import org.apache.flink.table.runtime.typeutils.DecimalTypeInfo;
 import org.apache.flink.table.types.CollectionDataType;
 import org.apache.flink.table.types.DataType;
-import org.apache.flink.table.types.InternalSerializers;
 import org.apache.flink.table.types.KeyValueDataType;
-import org.apache.flink.table.types.LogicalTypeDataTypeConverter;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LegacyTypeInformationType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.TypeInformationAnyType;
 import org.apache.flink.table.types.utils.TypeConversions;
-import org.apache.flink.table.typeutils.BigDecimalTypeInfo;
-import org.apache.flink.table.typeutils.BinaryStringTypeInfo;
-import org.apache.flink.table.typeutils.DecimalTypeInfo;
 import org.apache.flink.types.Row;
 
 import org.apache.commons.lang3.ArrayUtils;
@@ -53,6 +53,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -118,6 +119,9 @@ public class DataFormatConverters {
 		t2C.put(DataTypes.TIMESTAMP(3).bridgedTo(Timestamp.class), TimestampConverter.INSTANCE);
 		t2C.put(DataTypes.TIMESTAMP(3).bridgedTo(LocalDateTime.class), LocalDateTimeConverter.INSTANCE);
 
+		t2C.put(DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE(3).bridgedTo(Long.class), LongConverter.INSTANCE);
+		t2C.put(DataTypes.TIMESTAMP_WITH_LOCAL_TIME_ZONE(3).bridgedTo(Instant.class), InstantConverter.INSTANCE);
+
 		t2C.put(DataTypes.INTERVAL(DataTypes.MONTH()).bridgedTo(Integer.class), IntConverter.INSTANCE);
 		t2C.put(DataTypes.INTERVAL(DataTypes.MONTH()).bridgedTo(int.class), IntConverter.INSTANCE);
 
@@ -134,7 +138,6 @@ public class DataFormatConverters {
 	 *                   lost its specific Java format. Only DataType retains all its
 	 *                   Java format information.
 	 */
-	@Deprecated
 	public static DataFormatConverter getConverterForDataType(DataType originDataType) {
 		DataType dataType = originDataType.nullable();
 		DataFormatConverter converter = TYPE_TO_CONVERTER.get(dataType);
@@ -708,6 +711,33 @@ public class DataFormatConverters {
 
 		@Override
 		LocalDateTime toExternalImpl(BaseRow row, int column) {
+			return toExternalImpl(row.getLong(column));
+		}
+	}
+
+	/**
+	 * Converter for Instant.
+	 */
+	public static final class InstantConverter extends DataFormatConverter<Long, Instant> {
+
+		private static final long serialVersionUID = 1L;
+
+		public static final InstantConverter INSTANCE = new InstantConverter();
+
+		private InstantConverter() {}
+
+		@Override
+		Long toInternalImpl(Instant value) {
+			return value.toEpochMilli();
+		}
+
+		@Override
+		Instant toExternalImpl(Long value) {
+			return Instant.ofEpochMilli(value);
+		}
+
+		@Override
+		Instant toExternalImpl(BaseRow row, int column) {
 			return toExternalImpl(row.getLong(column));
 		}
 	}

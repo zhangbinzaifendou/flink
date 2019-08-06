@@ -178,7 +178,7 @@ function install_miniconda() {
 
 # Install some kinds of py env.
 function install_py_env() {
-    py_env=("2.7" "3.3" "3.4" "3.5" "3.6" "3.7")
+    py_env=("2.7" "3.5" "3.6" "3.7")
     for ((i=0;i<${#py_env[@]};i++)) do
         if [ -d "$CURRENT_DIR/.conda/envs/${py_env[i]}" ]; then
             rm -rf "$CURRENT_DIR/.conda/envs/${py_env[i]}"
@@ -213,7 +213,9 @@ function install_tox() {
         fi
     fi
 
-    $CONDA_PATH install -p $CONDA_HOME -c conda-forge tox -y -q 2>&1 >/dev/null
+    # virtualenv 16.6.2 released in 2019-07-14 is incompatible with py27 and py34,
+    # force install an older version(16.0.0) to avoid this problem.
+    $CONDA_PATH install -p $CONDA_HOME -c conda-forge virtualenv=16.0.0 tox -y -q 2>&1 >/dev/null
     if [ $? -ne 0 ]; then
         echo "conda install tox failed \
         please try to exec the script again.\

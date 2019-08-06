@@ -29,6 +29,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
+
 /**
  * Describe the different resource factors of the operator with UDF.
  *
@@ -48,11 +50,20 @@ import java.util.Objects;
  * </ol>
  */
 @Internal
-public class ResourceSpec implements Serializable {
+public final class ResourceSpec implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
-	public static final ResourceSpec DEFAULT = new ResourceSpec(0, 0, 0, 0, 0, 0);
+	/**
+	 * A ResourceSpec that indicates an unknown set of resources.
+	 */
+	public static final ResourceSpec UNKNOWN = new ResourceSpec();
+
+	/**
+	 * The default ResourceSpec used for operators and transformation functions.
+	 * Currently equal to {@link #UNKNOWN}.
+	 */
+	public static final ResourceSpec DEFAULT = UNKNOWN;
 
 	public static final String GPU_NAME = "GPU";
 
@@ -87,7 +98,7 @@ public class ResourceSpec implements Serializable {
 	 * @param managedMemoryInMB The size of managed memory, in megabytes.
 	 * @param extendedResources The extended resources, associated with the resource manager used
 	 */
-	protected ResourceSpec(
+	private ResourceSpec(
 			double cpuCores,
 			int heapMemoryInMB,
 			int directMemoryInMB,
@@ -95,6 +106,13 @@ public class ResourceSpec implements Serializable {
 			int stateSizeInMB,
 			int managedMemoryInMB,
 			Resource... extendedResources) {
+		checkArgument(cpuCores >= 0, "The cpu cores of the resource spec should not be negative.");
+		checkArgument(heapMemoryInMB >= 0, "The heap memory of the resource spec should not be negative");
+		checkArgument(directMemoryInMB >= 0, "The direct memory of the resource spec should not be negative");
+		checkArgument(nativeMemoryInMB >= 0, "The native memory of the resource spec should not be negative");
+		checkArgument(stateSizeInMB >= 0, "The state size of the resource spec should not be negative");
+		checkArgument(managedMemoryInMB >= 0, "The managed memory of the resource spec should not be negative");
+
 		this.cpuCores = cpuCores;
 		this.heapMemoryInMB = heapMemoryInMB;
 		this.directMemoryInMB = directMemoryInMB;
@@ -109,6 +127,18 @@ public class ResourceSpec implements Serializable {
 	}
 
 	/**
+	 * Creates a new ResourceSpec with all fields unknown.
+	 */
+	private ResourceSpec() {
+		this.cpuCores = -1;
+		this.heapMemoryInMB = -1;
+		this.directMemoryInMB = -1;
+		this.nativeMemoryInMB = -1;
+		this.stateSizeInMB = -1;
+		this.managedMemoryInMB = -1;
+	}
+
+	/**
 	 * Used by system internally to merge the other resources of chained operators
 	 * when generating the job graph or merge the resource consumed by state backend.
 	 *
@@ -116,6 +146,10 @@ public class ResourceSpec implements Serializable {
 	 * @return The new resource with merged values.
 	 */
 	public ResourceSpec merge(ResourceSpec other) {
+		if (this.equals(UNKNOWN) || other.equals(UNKNOWN)) {
+			return UNKNOWN;
+		}
+
 		ResourceSpec target = new ResourceSpec(
 				Math.max(this.cpuCores, other.cpuCores),
 				this.heapMemoryInMB + other.heapMemoryInMB,
@@ -246,9 +280,9 @@ public class ResourceSpec implements Serializable {
 
 	@Override
 	public String toString() {
-		String extend = "";
+		StringBuilder extend = new StringBuilder();
 		for (Resource resource : extendedResources.values()) {
-			extend += ", " + resource.getName() + "=" + resource.getValue();
+			extend.append(", ").append(resource.getName()).append("=").append(resource.getValue());
 		}
 		return "ResourceSpec{" +
 				"cpuCores=" + cpuCores +
@@ -259,6 +293,19 @@ public class ResourceSpec implements Serializable {
 				", managedMemoryInMB=" + managedMemoryInMB + extend +
 				'}';
 	}
+
+	// ------------------------------------------------------------------------
+	//  serialization
+	// ------------------------------------------------------------------------
+
+	private Object readResolve() {
+		// try to preserve the singleton property for UNKNOWN
+		return this.equals(UNKNOWN) ? UNKNOWN : this;
+	}
+
+	// ------------------------------------------------------------------------
+	//  builder
+	// ------------------------------------------------------------------------
 
 	public static Builder newBuilder() {
 		return new Builder();

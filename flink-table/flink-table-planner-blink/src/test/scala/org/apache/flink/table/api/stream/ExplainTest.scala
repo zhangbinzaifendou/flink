@@ -19,12 +19,12 @@
 package org.apache.flink.table.api.stream
 
 import org.apache.flink.api.scala._
-import org.apache.flink.table.api.ExecutionConfigOptions
+import org.apache.flink.table.api.config.ExecutionConfigOptions
 import org.apache.flink.table.api.scala._
+import org.apache.flink.table.planner.utils.TableTestBase
 import org.apache.flink.table.types.logical.{BigIntType, IntType, VarCharType}
-import org.apache.flink.table.util.TableTestBase
 
-import org.junit.Test
+import org.junit.{Before, Test}
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 
@@ -41,6 +41,12 @@ class ExplainTest(extended: Boolean) extends TableTestBase {
   val STRING = new VarCharType(VarCharType.MAX_LENGTH)
   val LONG = new BigIntType()
   val INT = new IntType()
+
+  @Before
+  def before(): Unit = {
+    util.tableEnv.getConfig.getConfiguration.setInteger(
+      ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM, 4)
+  }
 
   @Test
   def testExplainTableSourceScan(): Unit = {
@@ -109,10 +115,10 @@ class ExplainTest(extended: Boolean) extends TableTestBase {
       "T2", 'id2, 'cnt, 'name, 'goods, 'rowtime.rowtime)
     util.addTableWithWatermark("T3", util.tableEnv.scan("T1"), "rowtime", 0)
     util.addTableWithWatermark("T4", util.tableEnv.scan("T2"), "rowtime", 0)
-    util.tableEnv.getConfig.getConf.setBoolean(
-      ExecutionConfigOptions.SQL_EXEC_MINIBATCH_ENABLED, true)
-    util.tableEnv.getConfig.getConf.setString(
-      ExecutionConfigOptions.SQL_EXEC_MINIBATCH_ALLOW_LATENCY, "3 s")
+    util.tableEnv.getConfig.getConfiguration.setBoolean(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ENABLED, true)
+    util.tableEnv.getConfig.getConfiguration.setString(
+      ExecutionConfigOptions.TABLE_EXEC_MINIBATCH_ALLOW_LATENCY, "3 s")
     val table = util.tableEnv.sqlQuery(
       """
         |SELECT id1, T3.rowtime AS ts, text

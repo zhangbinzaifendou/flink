@@ -19,10 +19,10 @@ package org.apache.flink.table.dataformat;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
+import org.apache.flink.table.runtime.util.SegmentsUtil;
 import org.apache.flink.table.types.logical.DecimalType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.LogicalTypeRoot;
-import org.apache.flink.table.util.SegmentsUtil;
 
 import java.nio.ByteOrder;
 
@@ -81,6 +81,7 @@ public final class BinaryRow extends BinaryFormat implements BaseRow {
 			case INTERVAL_YEAR_MONTH:
 			case BIGINT:
 			case TIMESTAMP_WITHOUT_TIME_ZONE:
+			case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
 			case INTERVAL_DAY_TIME:
 			case FLOAT:
 			case DOUBLE:

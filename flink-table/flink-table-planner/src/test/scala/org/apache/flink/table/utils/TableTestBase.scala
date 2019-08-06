@@ -111,6 +111,7 @@ abstract class TableTestUtil(verifyCatalogPath: Boolean = false) {
     // we remove the charset for testing because it
     // depends on the native machine (Little/Big Endian)
     val actualNoCharset = actual.replace("_UTF-16LE'", "'").replace("_UTF-16BE'", "'")
+      .replace(" CHARACTER SET \"UTF-16LE\"", "").replace(" CHARACTER SET \"UTF-16BE\"", "")
 
     val expectedLines = expected.split("\n").map(_.trim)
     val actualLines = actualNoCharset.split("\n").map(_.trim)
@@ -328,8 +329,7 @@ case class StreamTableTestUtil(
   private val tableConfig = new TableConfig
   private val manager: CatalogManager = catalogManager.getOrElse(createCatalogManager())
   private val executor: StreamExecutor = new StreamExecutor(javaEnv)
-  private val functionCatalog =
-    new FunctionCatalog(manager.getCurrentCatalog, manager.getCurrentDatabase)
+  private val functionCatalog = new FunctionCatalog(manager)
   private val streamPlanner = new StreamPlanner(executor, tableConfig, functionCatalog, manager)
 
   val javaTableEnv = new JavaStreamTableEnvironmentImpl(

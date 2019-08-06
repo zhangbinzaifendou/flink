@@ -19,7 +19,6 @@
 package org.apache.flink.table.api.java.internal;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.dag.Transformation;
@@ -79,7 +78,6 @@ public final class StreamTableEnvironmentImpl extends TableEnvironmentImpl imple
 
 	private final StreamExecutionEnvironment executionEnvironment;
 
-	@VisibleForTesting
 	public StreamTableEnvironmentImpl(
 			CatalogManager catalogManager,
 			FunctionCatalog functionCatalog,
@@ -87,14 +85,9 @@ public final class StreamTableEnvironmentImpl extends TableEnvironmentImpl imple
 			StreamExecutionEnvironment executionEnvironment,
 			Planner planner,
 			Executor executor,
-			boolean isStreaming) {
-		super(catalogManager, tableConfig, executor, functionCatalog, planner, isStreaming);
+			boolean isStreamingMode) {
+		super(catalogManager, tableConfig, executor, functionCatalog, planner, isStreamingMode);
 		this.executionEnvironment = executionEnvironment;
-
-		if (!isStreaming) {
-			throw new TableException(
-				"StreamTableEnvironment is not supported on batch mode now, please use TableEnvironment.");
-		}
 	}
 
 	public static StreamTableEnvironment create(
@@ -102,12 +95,16 @@ public final class StreamTableEnvironmentImpl extends TableEnvironmentImpl imple
 			EnvironmentSettings settings,
 			TableConfig tableConfig) {
 
-		FunctionCatalog functionCatalog = new FunctionCatalog(
-			settings.getBuiltInCatalogName(),
-			settings.getBuiltInDatabaseName());
+		if (!settings.isStreamingMode()) {
+			throw new TableException(
+				"StreamTableEnvironment can not run in batch mode for now, please use TableEnvironment.");
+		}
+
 		CatalogManager catalogManager = new CatalogManager(
 			settings.getBuiltInCatalogName(),
 			new GenericInMemoryCatalog(settings.getBuiltInCatalogName(), settings.getBuiltInDatabaseName()));
+
+		FunctionCatalog functionCatalog = new FunctionCatalog(catalogManager);
 
 		Map<String, String> executorProperties = settings.toExecutorProperties();
 		Executor executor = lookupExecutor(executorProperties, executionEnvironment);
@@ -123,7 +120,7 @@ public final class StreamTableEnvironmentImpl extends TableEnvironmentImpl imple
 			executionEnvironment,
 			planner,
 			executor,
-			!settings.isBatchMode()
+			settings.isStreamingMode()
 		);
 	}
 
