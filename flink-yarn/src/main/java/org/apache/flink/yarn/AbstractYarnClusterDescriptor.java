@@ -106,6 +106,7 @@ import static org.apache.flink.runtime.entrypoint.component.FileJobGraphRetrieve
 import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.CONFIG_FILE_LOG4J_NAME;
 import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.CONFIG_FILE_LOGBACK_NAME;
 import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.getDynamicProperties;
+import static org.apache.flink.yarn.configuration.YarnConfigOptions.APPLICATION_STAGINGDIR;
 
 /**
  * The descriptor with deployment information for deploying a Flink cluster on Yarn.
@@ -667,7 +668,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// Copy the application master jar to the filesystem
 		// Create a local resource to point to the destination jar path
 		final FileSystem fs = FileSystem.get(yarnConfiguration);
-		final Path homeDir = fs.getHomeDirectory();
+		final Path homeDir = getAppStagingDir(configuration, fs);
 
 		// hard coded check for the GoogleHDFS client because its not overriding the getScheme() method.
 		if (!fs.getClass().getSimpleName().equals("GoogleHadoopFileSystem") &&
@@ -842,7 +843,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 				}
 
 				final String jobGraphFilename = "job.graph";
-				flinkConfiguration.setString(JOB_GRAPH_FILE_PATH, jobGraphFilename);
+				configuration.setString(JOB_GRAPH_FILE_PATH, jobGraphFilename);
 
 				Path pathFromYarnURL = setupSingleLocalResource(
 					jobGraphFilename,
@@ -980,7 +981,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// Set up resource type requirements for ApplicationMaster
 		Resource capability = Records.newRecord(Resource.class);
 		capability.setMemory(clusterSpecification.getMasterMemoryMB());
-		capability.setVirtualCores(flinkConfiguration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
+		capability.setVirtualCores(configuration.getInteger(YarnConfigOptions.APP_MASTER_VCORES));
 
 		final String customApplicationName = customName != null ? customName : applicationName;
 
@@ -1052,6 +1053,17 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		return report;
 	}
 
+	private Path getAppStagingDir(Configuration flinkConf, FileSystem fileSystem) throws IOException {
+		Path homeDir = null;
+		String appStagingDir = flinkConf.getString(APPLICATION_STAGINGDIR, "");
+		if (appStagingDir != null && appStagingDir.trim().length() > 0) {
+			homeDir = new Path(appStagingDir);
+		} else {
+			homeDir = fileSystem.getHomeDirectory();
+		}
+		return homeDir;
+	}
+
 	/**
 	 * Returns the Path where the YARN application files should be uploaded to.
 	 *
@@ -1059,7 +1071,7 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 	 */
 	private Path getYarnFilesDir(final ApplicationId appId) throws IOException {
 		final FileSystem fileSystem = FileSystem.get(yarnConfiguration);
-		final Path homeDir = fileSystem.getHomeDirectory();
+		final Path homeDir = getAppStagingDir(this.flinkConfiguration, fileSystem);
 		return new Path(homeDir, ".flink/" + appId + '/');
 	}
 

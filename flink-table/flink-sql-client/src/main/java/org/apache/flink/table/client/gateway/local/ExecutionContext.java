@@ -18,6 +18,8 @@
 
 package org.apache.flink.table.client.gateway.local;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.Options;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.Plan;
 import org.apache.flink.api.common.time.Time;
@@ -83,9 +85,6 @@ import org.apache.flink.table.planner.delegation.ExecutorBase;
 import org.apache.flink.table.sinks.TableSink;
 import org.apache.flink.table.sources.TableSource;
 import org.apache.flink.util.FlinkException;
-
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.Options;
 
 import java.lang.reflect.Method;
 import java.net.URL;

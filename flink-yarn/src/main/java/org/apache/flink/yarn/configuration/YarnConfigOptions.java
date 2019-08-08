@@ -188,6 +188,14 @@ public class YarnConfigOptions {
 		.defaultValue("")
 		.withDescription("A comma-separated list of tags to apply to the Flink YARN application.");
 
+	/**
+	 * A directory for storing configuration files and jar files for user jobs.
+	 */
+	public static final ConfigOption<String> APPLICATION_STAGINGDIR =
+		key("yarn.app.stagingDir")
+			.defaultValue("")
+			.withDescription("A directory for storing configuration files and jar files for user jobs.");
+
 	// ------------------------------------------------------------------------
 
 	/** This class is not meant to be instantiated. */
