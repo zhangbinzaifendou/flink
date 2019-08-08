@@ -31,7 +31,7 @@ import org.apache.flink.table.planner.functions.aggfunctions.MinWithRetractAggFu
 import org.apache.flink.table.planner.functions.aggfunctions.SingleValueAggFunction._
 import org.apache.flink.table.planner.functions.aggfunctions.SumWithRetractAggFunction._
 import org.apache.flink.table.planner.functions.aggfunctions._
-import org.apache.flink.table.planner.functions.sql.{SqlConcatAggFunction, SqlFirstLastValueAggFunction, SqlIncrSumAggFunction}
+import org.apache.flink.table.planner.functions.sql.{SqlListAggFunction, SqlFirstLastValueAggFunction}
 import org.apache.flink.table.planner.functions.utils.AggSqlFunction
 import org.apache.flink.table.runtime.types.TypeInfoLogicalTypeConverter
 import org.apache.flink.table.runtime.typeutils.DecimalTypeInfo
@@ -42,6 +42,8 @@ import org.apache.calcite.rel.`type`.RelDataType
 import org.apache.calcite.rel.core.AggregateCall
 import org.apache.calcite.sql.fun._
 import org.apache.calcite.sql.{SqlAggFunction, SqlKind, SqlRankFunction}
+
+import java.util
 
 import scala.collection.JavaConversions._
 
@@ -74,8 +76,6 @@ class AggFunctionFactory(
       case _: SqlSumAggFunction => createSumAggFunction(argTypes, index)
 
       case _: SqlSumEmptyIsZeroAggFunction => createSum0AggFunction(argTypes)
-
-      case _: SqlIncrSumAggFunction => createIncrSumAggFunction(argTypes, index)
 
       case a: SqlMinMaxAggFunction if a.getKind == SqlKind.MIN =>
         createMinAggFunction(argTypes, index)
@@ -113,18 +113,25 @@ class AggFunctionFactory(
       case a: SqlFirstLastValueAggFunction if a.getKind == SqlKind.LAST_VALUE =>
         createLastValueAggFunction(argTypes, index)
 
-      case _: SqlConcatAggFunction if call.getArgList.size() == 1 =>
-        createConcatAggFunction(argTypes, index)
+      case _: SqlListAggFunction if call.getArgList.size() == 1 =>
+        createListAggFunction(argTypes, index)
 
-      case _: SqlConcatAggFunction if call.getArgList.size() == 2 =>
-        createConcatWsAggFunction(argTypes, index)
+      case _: SqlListAggFunction if call.getArgList.size() == 2 =>
+        createListAggWsFunction(argTypes, index)
 
       // TODO supports SqlCardinalityCountAggFunction
 
       case a: SqlAggFunction if a.getKind == SqlKind.COLLECT =>
         createCollectAggFunction(argTypes)
 
-      case udagg: AggSqlFunction => udagg.getFunction
+      case udagg: AggSqlFunction =>
+        // Can not touch the literals, Calcite make them in previous RelNode.
+        // In here, all inputs are input refs.
+        val constants = new util.ArrayList[AnyRef]()
+        argTypes.foreach(t => constants.add(null))
+        udagg.makeFunction(
+          constants.toArray,
+          argTypes)
 
       case unSupported: SqlAggFunction =>
         throw new TableException(s"Unsupported Function: '${unSupported.getName}'")
@@ -606,23 +613,23 @@ class AggFunctionFactory(
     }
   }
 
-  private def createConcatAggFunction(
+  private def createListAggFunction(
       argTypes: Array[LogicalType],
       index: Int): UserDefinedFunction = {
     if (needRetraction(index)) {
-      new ConcatWithRetractAggFunction
+      new ListAggWithRetractAggFunction
     } else {
-      new ConcatAggFunction(1)
+      new ListAggFunction(1)
     }
   }
 
-  private def createConcatWsAggFunction(
+  private def createListAggWsFunction(
       argTypes: Array[LogicalType],
       index: Int): UserDefinedFunction = {
     if (needRetraction(index)) {
-      new ConcatWsWithRetractAggFunction
+      new ListAggWsWithRetractAggFunction
     } else {
-      new ConcatAggFunction(2)
+      new ListAggFunction(2)
     }
   }
 
