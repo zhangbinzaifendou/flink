@@ -20,6 +20,7 @@ package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.Public;
 
+import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -48,6 +49,11 @@ public class UnmodifiableConfiguration extends Configuration {
 	public void addAllToProperties(Properties props) {
 		// override to make the UnmodifiableConfigurationTest happy
 		super.addAllToProperties(props);
+	}
+
+	@Override
+	public void addAll(Map<String, String> other) {
+		error();
 	}
 
 	@Override

@@ -97,4 +97,9 @@ public class OptimizerConfigOptions {
 		key("table.optimizer.join-reorder-enabled")
 			.defaultValue(false)
 			.withDescription("Enables join reorder in optimizer. Default is disabled.");
+
+	public static final ConfigOption<Boolean> EXECUTION_JOB_SHARE =
+		key("table.optimizer.job-share")
+			.defaultValue(false)
+			.withDescription("Controls whether partitions should already be released during the job execution.");
 }

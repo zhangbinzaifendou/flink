@@ -19,6 +19,8 @@
 package org.apache.flink.table.client.cli;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.client.deployment.ClusterDescriptor;
+import org.apache.flink.client.program.ClusterClient;
 import org.apache.flink.table.api.TableSchema;
 import org.apache.flink.table.client.SqlClientException;
 import org.apache.flink.table.client.cli.SqlCommandParser.SqlCommandCall;
@@ -28,7 +30,10 @@ import org.apache.flink.table.client.gateway.ProgramTargetDescriptor;
 import org.apache.flink.table.client.gateway.ResultDescriptor;
 import org.apache.flink.table.client.gateway.SessionContext;
 import org.apache.flink.table.client.gateway.SqlExecutionException;
-
+import org.apache.flink.table.client.gateway.local.ExecutionContext;
+import org.apache.flink.table.client.gateway.local.LocalExecutor;
+import org.apache.flink.types.Row;
+import org.apache.flink.util.StringUtils;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
@@ -43,6 +48,8 @@ import org.jline.utils.InfoCmp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOError;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -52,6 +59,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Scanner;
 
 /**
  * SQL CLI client.
@@ -196,8 +204,11 @@ public class CliClient {
 			if (line == null) {
 				continue;
 			}
+			long t1 = System.currentTimeMillis();
 			final Optional<SqlCommandCall> cmdCall = parseCommand(line);
 			cmdCall.ifPresent(this::callCommand);
+			long t2 = System.currentTimeMillis();
+			terminal.writer().println("Time taken:" + (t2 - t1) / 1000 + " s");
 		}
 	}
 
@@ -210,6 +221,86 @@ public class CliClient {
 		} catch (IOException e) {
 			throw new SqlClientException("Unable to close terminal.", e);
 		}
+	}
+
+	/**
+	 * Opens the interactive CLI shell.
+	 */
+	public void open4XSQL() {
+		isRunning = true;
+
+		// print welcome
+		terminal.writer().append(CliStrings.MESSAGE_WELCOME);
+		terminal.writer().append("start\n");
+		terminal.flush();
+		// begin reading loop
+		Scanner scanner = new Scanner(System.in);
+		scanner.useDelimiter(";");
+		while (isRunning && scanner.hasNext()) {
+			// make some space to previous command
+//			terminal.flush();
+
+			final String line;
+			try {
+				line = scanner.nextLine();
+			} catch (UserInterruptException e) {
+				// user cancelled line with Ctrl+C
+				continue;
+			} catch (EndOfFileException | IOError e) {
+				// user cancelled application with Ctrl+D or kill
+				break;
+			} catch (Throwable t) {
+				throw new SqlClientException("Could not read from command line.", t);
+			}
+			if (line == null) {
+				continue;
+			}
+			long t1 = System.currentTimeMillis();
+			final Optional<SqlCommandCall> cmdCall = parseCommand(line);
+			cmdCall.ifPresent(this::callCommand);
+			long t2 = System.currentTimeMillis();
+			terminal.writer().println("Time taken:" + (t2 - t1) / 1000 + " s");
+			terminal.flush();
+		}
+
+		try {
+			scanner.close();
+		} catch (Exception e) {
+			scanner = null;
+			terminal.writer().println(e.getMessage());
+		}
+	}
+
+	public void executeSql(String sql) {
+		long t1 = System.currentTimeMillis();
+		final Optional<SqlCommandCall> cmdCall = parseCommand(sql);
+		cmdCall.ifPresent(this::callCommand);
+		long t2 = System.currentTimeMillis();
+		terminal.writer().append(sql);
+		terminal.writer().append("\nTime:" + (t2 - t1) / 1000 + "s" + "\n");
+		terminal.flush();
+	}
+
+
+	public void executeSqlFile(String sqlFile) {
+		Scanner scanner = null;
+		try {
+			scanner = new Scanner(new File(sqlFile));
+			scanner.useDelimiter(";");
+			while (scanner.hasNext()) {
+				String sql = scanner.next();
+				if (!StringUtils.isNullOrWhitespaceOnly(sql)) {
+					executeSql(sql);
+				}
+			}
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} finally {
+			if (scanner != null) {
+				scanner.close();
+			}
+		}
+
 	}
 
 	/**
@@ -307,9 +398,43 @@ public class CliClient {
 		}
 	}
 
-	private void callQuit() {
+	public void callQuit() {
 		printInfo(CliStrings.MESSAGE_QUIT);
 		isRunning = false;
+//		if (context.getEnvironment().getConfiguration().asMap().get(OptimizerConfigOptions.EXECUTION_JOB_SHARE.key()).equals("true")) {
+		ExecutionContext<?> executionContext = ((LocalExecutor) executor).getOrCreateExecutionContext(context);
+		if ("true".equals(executionContext.getMergedEnvironment().getConfiguration().asMap()
+			.get("table.optimizer.job-share"))) {
+			try (final ClusterDescriptor clusterDescriptor = executionContext.createClusterDescriptor()) {
+				ClusterClient clusterClient = null;
+				try {
+					if (executionContext.getClusterId() != null) {
+						// retrieve existing cluster
+						clusterClient = clusterDescriptor.retrieve(executionContext.getClusterId());
+					}
+				} catch (Exception e) {
+					throw new SqlExecutionException("Could not retrieve or create a cluster.", e);
+				} finally {
+					try {
+						if (clusterClient != null && executionContext.isNewSession()) {
+							clusterClient.shutDownCluster();
+						}
+					} finally {
+						try {
+							if (clusterClient != null) {
+								clusterClient.shutdown();
+							}
+						} finally {
+							clusterClient = null;
+						}
+					}
+				}
+			} catch (SqlExecutionException e) {
+				throw e;
+			} catch (Exception e) {
+				throw new SqlExecutionException("Could not locate a cluster.", e);
+			}
+		}
 	}
 
 	private void callClear() {
@@ -471,21 +596,38 @@ public class CliClient {
 			printExecutionException(e);
 			return;
 		}
-		final CliResultView view;
-		if (resultDesc.isMaterialized()) {
-			view = new CliTableResultView(this, resultDesc);
+		ExecutionContext<?> executionContext = ((LocalExecutor) executor).getOrCreateExecutionContext(context);
+		if(executionContext.getMergedEnvironment().getConfiguration().asMap()
+			.get("table.optimizer.result-direct-output").equals("true")) {
+			List<Row> allRow = null;
+			try {
+				allRow = executor.getAllRows(resultDesc.getResultId());
+				if (allRow == null) {
+					terminal.writer().println(CliStrings.messageInfo(CliStrings.MESSAGE_EMPTY).toAnsi());
+				} else {
+					allRow.forEach((v) -> terminal.writer().println(v));
+				}
+			} catch (Exception e) {
+				terminal.writer().println(e.getCause().getCause());
+			}
+			terminal.flush();
 		} else {
-			view = new CliChangelogResultView(this, resultDesc);
-		}
+			final CliResultView view;
+			if (resultDesc.isMaterialized()) {
+				view = new CliTableResultView(this, resultDesc);
+			} else {
+				view = new CliChangelogResultView(this, resultDesc);
+			}
 
-		// enter view
-		try {
-			view.open();
+			// enter view
+			try {
+				view.open();
 
-			// view left
-			printInfo(CliStrings.MESSAGE_RESULT_QUIT);
-		} catch (SqlExecutionException e) {
-			printExecutionException(e);
+				// view left
+				printInfo(CliStrings.MESSAGE_RESULT_QUIT);
+			} catch (SqlExecutionException e) {
+				printExecutionException(e);
+			}
 		}
 	}
 

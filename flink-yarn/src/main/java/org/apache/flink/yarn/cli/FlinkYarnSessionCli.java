@@ -131,6 +131,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 	private final Option tmMemory;
 	private final Option container;
 	private final Option slots;
+	private final Option yarnCluster;
 	private final Option zookeeperNamespace;
 	private final Option nodeLabel;
 	private final Option help;
@@ -188,6 +189,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		query = new Option(shortPrefix + "q", longPrefix + "query", false, "Display available YARN resources (memory, cores)");
 		applicationId = new Option(shortPrefix + "id", longPrefix + "applicationId", true, "Attach to running YARN session");
 		queue = new Option(shortPrefix + "qu", longPrefix + "queue", true, "Specify YARN queue.");
+		yarnCluster = new Option(shortPrefix + "m", longPrefix + "yarn-cluster", true, "yarn cluster mode");
 		shipPath = new Option(shortPrefix + "t", longPrefix + "ship", true, "Ship files in the specified directory (t for transfer)");
 		flinkJar = new Option(shortPrefix + "j", longPrefix + "jar", true, "Path to Flink jar file");
 		jmMemory = new Option(shortPrefix + "jm", longPrefix + "jobManagerMemory", true, "Memory for JobManager Container with optional unit (default: MB)");
@@ -224,6 +226,7 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 		allOptions.addOption(name);
 		allOptions.addOption(applicationId);
 		allOptions.addOption(applicationType);
+		allOptions.addOption(yarnCluster);
 		allOptions.addOption(zookeeperNamespace);
 		allOptions.addOption(nodeLabel);
 		allOptions.addOption(help);
@@ -427,10 +430,11 @@ public class FlinkYarnSessionCli extends AbstractCustomCommandLine<ApplicationId
 
 	@Override
 	public boolean isActive(CommandLine commandLine) {
-		String jobManagerOption = commandLine.getOptionValue(addressOption.getOpt(), null);
+		String jobManagerOption = commandLine.getOptionValue(yarnCluster.getOpt(), null);
 		boolean yarnJobManager = ID.equals(jobManagerOption);
 		boolean yarnAppId = commandLine.hasOption(applicationId.getOpt());
-		return yarnJobManager || yarnAppId || (isYarnPropertiesFileMode(commandLine) && yarnApplicationIdFromYarnProperties != null);
+//		return yarnJobManager || yarnAppId || (isYarnPropertiesFileMode(commandLine) && yarnApplicationIdFromYarnProperties != null);
+		return yarnJobManager || yarnAppId || isYarnPropertiesFileMode(commandLine);
 	}
 
 	@Override

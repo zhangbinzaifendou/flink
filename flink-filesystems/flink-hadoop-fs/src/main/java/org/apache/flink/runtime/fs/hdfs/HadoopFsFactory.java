@@ -25,13 +25,11 @@ import org.apache.flink.core.fs.LimitedConnectionsFileSystem;
 import org.apache.flink.core.fs.LimitedConnectionsFileSystem.ConnectionLimitingSettings;
 import org.apache.flink.core.fs.UnsupportedFileSystemSchemeException;
 import org.apache.flink.runtime.util.HadoopUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
-import java.net.UnknownHostException;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -94,6 +92,7 @@ public class HadoopFsFactory implements FileSystemFactory {
 
 			// -- (2) get the Hadoop file system class for that scheme
 
+			/**
 			final Class<? extends org.apache.hadoop.fs.FileSystem> fsClass;
 			try {
 				fsClass = org.apache.hadoop.fs.FileSystem.getFileSystemClass(scheme, hadoopConfig);
@@ -174,8 +173,19 @@ public class HadoopFsFactory implements FileSystemFactory {
 			else {
 				return fs;
 			}
+			*/
+			HadoopFileSystem fs = null;
+			try {
+				org.apache.hadoop.fs.FileSystem hadoopFS = org.apache.hadoop.fs.FileSystem.get(hadoopConfig);
+				fs = new HadoopFileSystem(hadoopFS);
+			} catch (Exception e) {
+				throw new IOException("Cannot instantiate file system for URI: " + fsUri, e);
+			}
+			return fs;
+
 		}
-		catch (ReflectiveOperationException | LinkageError e) {
+//		catch (ReflectiveOperationException | LinkageError e) {
+		catch (LinkageError e) {
 			throw new UnsupportedFileSystemSchemeException("Cannot support file system for '" + fsUri.getScheme() +
 					"' via Hadoop, because Hadoop is not in the classpath, or some classes " +
 					"are missing from the classpath.", e);

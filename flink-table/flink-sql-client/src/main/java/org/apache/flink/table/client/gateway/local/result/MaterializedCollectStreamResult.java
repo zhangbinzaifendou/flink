@@ -261,4 +261,9 @@ public class MaterializedCollectStreamResult<C> extends CollectStreamResult<C> i
 			MATERIALIZED_TABLE_MAX_OVERCOMMIT,
 			(int) (maxRowCount * MATERIALIZED_TABLE_OVERCOMMIT_FACTOR));
 	}
+
+	@Override
+	public List<Row> getAllRows() {
+		return null;
+	}
 }

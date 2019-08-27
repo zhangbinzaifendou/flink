@@ -304,5 +304,10 @@ public class CliClientTest extends TestLogger {
 		public void stop(SessionContext session) {
 			// nothing to do
 		}
+
+		@Override
+		public List<Row> getAllRows(String resultId) throws SqlExecutionException {
+			return null;
+		}
 	}
 }

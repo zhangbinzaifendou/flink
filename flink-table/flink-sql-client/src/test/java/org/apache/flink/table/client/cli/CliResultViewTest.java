@@ -211,6 +211,11 @@ public class CliResultViewTest {
 		public void stop(SessionContext session) {
 			// do nothing
 		}
+
+		@Override
+		public List<Row> getAllRows(String resultId) throws SqlExecutionException {
+			return null;
+		}
 	}
 
 	private static final class TestingCliResultView implements Runnable {

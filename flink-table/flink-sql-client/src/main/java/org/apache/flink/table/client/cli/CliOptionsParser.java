@@ -18,20 +18,21 @@
 
 package org.apache.flink.table.client.cli;
 
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.table.client.SqlClientException;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.table.client.SqlClientException;
 
 import java.io.File;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -58,7 +59,7 @@ public class CliOptionsParser {
 			.build();
 
 	public static final Option OPTION_ENVIRONMENT = Option
-			.builder("e")
+			.builder("E")
 			.required(false)
 			.longOpt("environment")
 			.numberOfArgs(1)
@@ -67,6 +68,34 @@ public class CliOptionsParser {
 				"The environment properties to be imported into the session. " +
 				"It might overwrite default environment properties.")
 			.build();
+
+	public static final Option OPTION_SQL = Option
+		.builder("e")
+		.required(false)
+		.longOpt("sql")
+		.numberOfArgs(1)
+		.argName("sql")
+		.desc("sql")
+		.build();
+
+	public static final Option OPTION_SQL_FILE = Option
+		.builder("f")
+		.required(false)
+		.longOpt("file")
+		.numberOfArgs(1)
+		.argName("sql file")
+		.desc("sql flie")
+		.build();
+
+	public static final Option OPTION_CONF = Option
+		.builder("conf")
+		.required(false)
+		.longOpt("conf")
+		.numberOfArgs(1)
+		.argName("dynamic conf")
+		.desc("dynamic conf")
+		.build();
+
 
 	public static final Option OPTION_DEFAULTS = Option
 			.builder("d")
@@ -133,6 +162,9 @@ public class CliOptionsParser {
 		options.addOption(OPTION_JAR);
 		options.addOption(OPTION_LIBRARY);
 		options.addOption(OPTION_UPDATE);
+		options.addOption(OPTION_SQL);
+		options.addOption(OPTION_SQL_FILE);
+		options.addOption(OPTION_CONF);
 		return options;
 	}
 
@@ -228,6 +260,12 @@ public class CliOptionsParser {
 		try {
 			DefaultParser parser = new DefaultParser();
 			CommandLine line = parser.parse(EMBEDDED_MODE_CLIENT_OPTIONS, args, true);
+			Map<String, String> map = new HashMap<String, String>();
+			map.putAll(line.getOptionProperties("conf").entrySet()
+				.stream()
+				.collect(Collectors.toMap(e -> e.getKey().toString().split("=")[0],
+					e -> e.getKey().toString().split("=")[1])));
+
 			return new CliOptions(
 				line.hasOption(CliOptionsParser.OPTION_HELP.getOpt()),
 				checkSessionId(line),
@@ -235,7 +273,10 @@ public class CliOptionsParser {
 				checkUrl(line, CliOptionsParser.OPTION_DEFAULTS),
 				checkUrls(line, CliOptionsParser.OPTION_JAR),
 				checkUrls(line, CliOptionsParser.OPTION_LIBRARY),
-				line.getOptionValue(CliOptionsParser.OPTION_UPDATE.getOpt())
+				line.getOptionValue(CliOptionsParser.OPTION_UPDATE.getOpt()),
+				line.getOptionValue(CliOptionsParser.OPTION_SQL.getOpt()),
+				line.getOptionValue(CliOptionsParser.OPTION_SQL_FILE.getOpt()),
+				map
 			);
 		}
 		catch (ParseException e) {

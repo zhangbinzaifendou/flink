@@ -19,7 +19,9 @@
 package org.apache.flink.table.client.cli;
 
 import java.net.URL;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Command line options to configure the SQL client. Arguments that have not been specified
@@ -34,6 +36,10 @@ public class CliOptions {
 	private final List<URL> jars;
 	private final List<URL> libraryDirs;
 	private final String updateStatement;
+
+	private String sql;
+	private String sqlFile;
+	private Map<String, String> map = new HashMap<String, String>();
 
 	public CliOptions(
 			boolean isPrintHelp,
@@ -50,6 +56,23 @@ public class CliOptions {
 		this.jars = jars;
 		this.libraryDirs = libraryDirs;
 		this.updateStatement = updateStatement;
+	}
+
+	public CliOptions(
+		boolean isPrintHelp,
+		String sessionId,
+		URL environment,
+		URL defaults,
+		List<URL> jars,
+		List<URL> libraryDirs,
+		String updateStatement,
+		String sql,
+		String sqlFile,
+		Map<String, String> map) {
+		this(isPrintHelp, sessionId, environment, defaults, jars, libraryDirs, updateStatement);
+		this.sql = sql;
+		this.sqlFile = sqlFile;
+		this.map = map;
 	}
 
 	public boolean isPrintHelp() {
@@ -78,5 +101,21 @@ public class CliOptions {
 
 	public String getUpdateStatement() {
 		return updateStatement;
+	}
+
+	public String getSql(){
+		return sql;
+	}
+
+	public String getSqlFile(){
+		return sqlFile;
+	}
+
+	public Map<String, String> getMap() {
+		return map;
+	}
+
+	public void setMap(Map<String, String> map) {
+		this.map = map;
 	}
 }

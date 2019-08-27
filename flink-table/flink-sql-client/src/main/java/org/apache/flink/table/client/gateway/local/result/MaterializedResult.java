@@ -40,4 +40,9 @@ public interface MaterializedResult<C> extends DynamicResult<C> {
 	 * Retrieves a page of a snapshotted result.
 	 */
 	List<Row> retrievePage(int page);
+
+	/**
+	 * return all result
+	 */
+	List<Row> getAllRows();
 }

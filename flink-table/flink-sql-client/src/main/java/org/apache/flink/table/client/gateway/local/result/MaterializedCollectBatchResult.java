@@ -34,6 +34,7 @@ import org.apache.flink.util.AbstractID;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * Collects results using accumulators and returns them as table snapshots.
@@ -53,6 +54,7 @@ public class MaterializedCollectBatchResult<C> extends BasicResult<C> implements
 	private List<Row> resultTable;
 
 	private volatile boolean snapshotted = false;
+	private CountDownLatch countDownLatch = new CountDownLatch(1);
 
 	public MaterializedCollectBatchResult(RowTypeInfo outputType, ExecutionConfig config) {
 		this.outputType = outputType;
@@ -148,7 +150,23 @@ public class MaterializedCollectBatchResult<C> extends BasicResult<C> implements
 				executionException = new SqlExecutionException("Serialization error while deserializing collected data.", e);
 			} catch (SqlExecutionException e) {
 				executionException = e;
+			}finally {
+				countDownLatch.countDown();
 			}
 		}
+	}
+
+
+	@Override
+	public List<Row> getAllRows() {
+		try {
+			countDownLatch.await();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		if (executionException != null) {
+			throw executionException;
+		}
+		return resultTable;
 	}
 }
