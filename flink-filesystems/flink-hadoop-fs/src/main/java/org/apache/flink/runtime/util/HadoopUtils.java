@@ -77,15 +77,15 @@ public class HadoopUtils {
 		}
 
 		// 2. Approach environment variables
-		String[] possibleHadoopConfPaths = new String[4];
+		String[] possibleHadoopConfPaths = new String[2];
 		possibleHadoopConfPaths[0] = flinkConfiguration.getString(ConfigConstants.PATH_HADOOP_CONFIG, null);
 		possibleHadoopConfPaths[1] = System.getenv("HADOOP_CONF_DIR");
 
-		final String hadoopHome = System.getenv("HADOOP_HOME");
-		if (hadoopHome != null) {
-			possibleHadoopConfPaths[2] = hadoopHome + "/conf";
-			possibleHadoopConfPaths[3] = hadoopHome + "/etc/hadoop"; // hadoop 2.2
-		}
+//		final String hadoopHome = System.getenv("HADOOP_HOME");
+//		if (hadoopHome != null) {
+//			possibleHadoopConfPaths[2] = hadoopHome + "/conf";
+//			possibleHadoopConfPaths[3] = hadoopHome + "/etc/hadoop"; // hadoop 2.2
+//		}
 
 		for (String possibleHadoopConfPath : possibleHadoopConfPaths) {
 			if (possibleHadoopConfPath != null) {

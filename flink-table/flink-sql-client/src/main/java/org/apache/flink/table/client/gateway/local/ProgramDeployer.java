@@ -25,7 +25,6 @@ import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.table.client.gateway.SqlExecutionException;
 import org.apache.flink.table.client.gateway.local.result.Result;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,7 +91,13 @@ public class ProgramDeployer<C> implements Runnable {
 			try {
 				// new cluster
 				if (context.getClusterId() == null) {
-					deployJobOnNewCluster(clusterDescriptor, jobGraph, result, context.getClassLoader());
+//					if (context.getMergedEnvironment().getConfiguration().asMap()
+//						.get(OptimizerConfigOptions.EXECUTION_JOB_SHARE.key()).equals("true")) {
+					if ("true".equals(context.getMergedEnvironment().getConfiguration().asMap().get("table.optimizer.job-share"))) {
+						deployJobOnNewSession(clusterDescriptor, jobGraph, result);
+					} else {
+						deployJobOnNewCluster(clusterDescriptor, jobGraph, result, context.getClassLoader());
+					}
 				}
 				// reuse existing cluster
 				else {
@@ -148,6 +153,46 @@ public class ProgramDeployer<C> implements Runnable {
 		try {
 			// retrieve existing cluster
 			clusterClient = clusterDescriptor.retrieve(clusterId);
+			String webInterfaceUrl;
+			// retrieving the web interface URL might fail on legacy pre-FLIP-6 code paths
+			// TODO remove this once we drop support for legacy deployment code
+			try {
+				webInterfaceUrl = clusterClient.getWebInterfaceURL();
+			} catch (Exception e) {
+				webInterfaceUrl = "N/A";
+			}
+			// save the cluster information
+			result.setClusterInformation(clusterClient.getClusterId(), webInterfaceUrl);
+			// submit job (and get result)
+			if (awaitJobResult) {
+				clusterClient.setDetached(false);
+				final JobExecutionResult jobResult = clusterClient
+					.submitJob(jobGraph, context.getClassLoader())
+					.getJobExecutionResult(); // throws exception if job fails
+				executionResultBucket.add(jobResult);
+			} else {
+				clusterClient.setDetached(true);
+				clusterClient.submitJob(jobGraph, context.getClassLoader());
+			}
+		} finally {
+			try {
+				if (clusterClient != null) {
+					clusterClient.shutdown();
+				}
+			} catch (Exception e) {
+				// ignore
+			}
+		}
+	}
+
+	private <T> void deployJobOnNewSession(
+			ClusterDescriptor<T> clusterDescriptor,
+			JobGraph jobGraph,
+			Result<T> result) throws Exception {
+		ClusterClient<T> clusterClient = clusterDescriptor.deploySessionCluster(context.getClusterSpec());
+		context.setClusterId((C) clusterClient.getClusterId());
+		context.setNewSession(true);
+		try {
 			String webInterfaceUrl;
 			// retrieving the web interface URL might fail on legacy pre-FLIP-6 code paths
 			// TODO remove this once we drop support for legacy deployment code

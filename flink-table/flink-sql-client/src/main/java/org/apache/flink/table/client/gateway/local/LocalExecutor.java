@@ -552,7 +552,7 @@ public class LocalExecutor implements Executor {
 	/**
 	 * Creates or reuses the execution context.
 	 */
-	private synchronized ExecutionContext<?> getOrCreateExecutionContext(SessionContext session) throws SqlExecutionException {
+	public synchronized ExecutionContext<?> getOrCreateExecutionContext(SessionContext session) throws SqlExecutionException {
 		if (executionContext == null || !executionContext.getSessionContext().equals(session)) {
 			try {
 				executionContext = new ExecutionContext<>(defaultEnvironment, session, dependencies,
@@ -628,5 +628,25 @@ public class LocalExecutor implements Executor {
 			builder.field(schema.getFieldNames()[i], convertedType);
 		}
 		return builder.build();
+	}
+
+	private DynamicResult<?> getResult(String resultId){
+		final DynamicResult<?> result = resultStore.getResult(resultId);
+		if (result == null) {
+			throw new SqlExecutionException("Could not find a result with result identifier '" + resultId + "'.");
+		}
+		if (!result.isMaterialized()) {
+			throw new SqlExecutionException("Invalid result retrieval mode.");
+		}
+		return result;
+	}
+
+	@Override
+	public List<Row> getAllRows(String resultId) throws SqlExecutionException {
+		return ((MaterializedResult<?>) getResult(resultId)).getAllRows();
+	}
+
+	public Configuration getFlinkConfig() {
+		return flinkConfig;
 	}
 }

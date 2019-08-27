@@ -114,7 +114,8 @@ public class ExecutionContext<T> {
 	private final CommandLine commandLine;
 	private final CustomCommandLine<T> activeCommandLine;
 	private final RunOptions runOptions;
-	private final T clusterId;
+	private T clusterId;
+	private boolean isNewSession;
 	private final ClusterSpecification clusterSpec;
 
 	public ExecutionContext(Environment defaultEnvironment, SessionContext sessionContext, List<URL> dependencies,
@@ -180,6 +181,18 @@ public class ExecutionContext<T> {
 
 	public T getClusterId() {
 		return clusterId;
+	}
+
+	public void setClusterId(T clusterId) {
+		this.clusterId = clusterId;
+	}
+
+	public void setNewSession(boolean newSession) {
+		isNewSession = newSession;
+	}
+
+	public boolean isNewSession() {
+		return isNewSession;
 	}
 
 	public ClusterDescriptor<T> createClusterDescriptor() throws Exception {

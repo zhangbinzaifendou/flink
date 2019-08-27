@@ -279,6 +279,10 @@ public final class DelegatingConfiguration extends Configuration {
 	}
 
 	@Override
+	public void addAll(Map<String, String> other) {
+		this.backingConfig.addAll(other);
+	}
+
 	public String toString() {
 		return backingConfig.toString();
 	}

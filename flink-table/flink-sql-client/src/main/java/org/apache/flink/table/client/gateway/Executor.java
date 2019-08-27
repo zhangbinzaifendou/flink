@@ -131,4 +131,9 @@ public interface Executor {
 	 * Stops the executor.
 	 */
 	void stop(SessionContext session);
+
+	/**
+	 * Return the all rows
+	 */
+	List<Row> getAllRows(String resultId) throws SqlExecutionException;
 }

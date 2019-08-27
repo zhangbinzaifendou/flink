@@ -175,7 +175,7 @@ public class HistoryServer {
 				refreshDirs.add(new RefreshLocation(refreshPath, refreshFS));
 			} catch (Exception e) {
 				// there's most likely something wrong with the path itself, so we ignore it from here on
-				LOG.warn("Failed to create Path or FileSystem for directory '{}'. Directory will not be monitored.", refreshDirectory, e);
+				throw new FlinkException("Failed to create Path or FileSystem for directory " + refreshDirectory + ". Directory will not be monitored.");
 			}
 		}
 
