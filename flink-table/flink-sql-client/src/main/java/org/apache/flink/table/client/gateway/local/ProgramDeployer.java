@@ -25,6 +25,7 @@ import org.apache.flink.client.program.rest.RestClusterClient;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.table.client.gateway.SqlExecutionException;
 import org.apache.flink.table.client.gateway.local.result.Result;
+import org.apache.flink.util.FlinkException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -214,6 +215,8 @@ public class ProgramDeployer<C> implements Runnable {
 				clusterClient.setDetached(true);
 				clusterClient.submitJob(jobGraph, context.getClassLoader());
 			}
+		} catch (Exception e){
+			throw new FlinkException(e);
 		} finally {
 			try {
 				if (clusterClient != null) {

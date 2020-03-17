@@ -209,6 +209,7 @@ public class CliClient {
 			cmdCall.ifPresent(this::callCommand);
 			long t2 = System.currentTimeMillis();
 			terminal.writer().println("Time taken:" + (t2 - t1) / 1000 + " s");
+			terminal.writer().println("");
 		}
 	}
 
@@ -433,6 +434,8 @@ public class CliClient {
 				throw e;
 			} catch (Exception e) {
 				throw new SqlExecutionException("Could not locate a cluster.", e);
+			} finally {
+				System.out.println("stopped flink client");
 			}
 		}
 	}

@@ -108,7 +108,7 @@ public final class SqlCommandParser {
 			SINGLE_OPERAND),
 
 		DESCRIBE(
-			"DESCRIBE\\s+(.*)",
+			"(DESC|DESCRIBE)\\s+(.*)",
 			SINGLE_OPERAND),
 
 		EXPLAIN(

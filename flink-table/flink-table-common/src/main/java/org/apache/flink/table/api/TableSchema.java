@@ -227,7 +227,18 @@ public class TableSchema {
 	@Override
 	public String toString() {
 		final StringBuilder sb = new StringBuilder();
-		sb.append("root\n");
+		sb.append(String.format("%-" + 20 + "s", "+--"))
+			.append(String.format("%-" + 10 + "s", "+--"))
+			.append(String.format("%-" + 10 + "s", "+--"))
+			.append("+")
+			.append(String.format("%-" + 20 + "s", "|name"))
+			.append(String.format("%-" + 10 + "s", "|type"))
+			.append(String.format("%-" + 10 + "s", "|isNullable"))
+		   	.append("|")
+			.append(String.format("%-" + 20 + "s", "+--"))
+			.append(String.format("%-" + 10 + "s", "+--"))
+			.append(String.format("%-" + 10 + "s", "+--"))
+			.append("+");
 		for (int i = 0; i < fieldNames.length; i++) {
 			sb.append(" |-- ").append(fieldNames[i]).append(": ").append(fieldDataTypes[i]).append('\n');
 		}

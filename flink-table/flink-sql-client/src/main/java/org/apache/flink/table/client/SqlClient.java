@@ -161,7 +161,7 @@ public class SqlClient {
 	/**
 	 * Opens the CLI client for executing SQL statements.
 	 *
-	 * @param context session context
+	 * @param context  session context
 	 * @param executor executor
 	 */
 	private void openCli(SessionContext context, Executor executor) {
@@ -170,7 +170,11 @@ public class SqlClient {
 			cli = new CliClient(context, executor);
 			// interactive CLI mode
 			if (options.getUpdateStatement() == null) {
-				cli.open();
+				if (isXSQL) {
+					cli.open4XSQL();
+				} else {
+					cli.open();
+				}
 			}
 			// execute single update statement
 			else {
@@ -201,9 +205,8 @@ public class SqlClient {
 
 	private static void shutdown(SessionContext context, Executor executor) {
 		System.out.println();
-		System.out.print("Shutting down executor...");
+		System.out.println("Shutting down executor...");
 		executor.stop(context);
-		System.out.println("done.");
 	}
 
 	private static Environment readSessionEnvironment(URL envUrl) {
@@ -234,13 +237,19 @@ public class SqlClient {
 
 			case MODE_EMBEDDED:
 				// remove mode
-				final String[] modeArgs = Arrays.copyOfRange(args, 1, args.length);
+				String[] modeArgs = Arrays.copyOfRange(args, 1, args.length);
+				// xsql
+				boolean isXSQL = false;
+				if (modeArgs != null && modeArgs.length > 0 && modeArgs[0].equals(XSQL)) {
+					isXSQL = true;
+					modeArgs = Arrays.copyOfRange(modeArgs, 1, modeArgs.length);
+				}
 				final CliOptions options = CliOptionsParser.parseEmbeddedModeClient(modeArgs);
 				if (options.isPrintHelp()) {
 					CliOptionsParser.printHelpEmbeddedModeClient();
 				} else {
 					try {
-						final SqlClient client = new SqlClient(true, options);
+						final SqlClient client = new SqlClient(true, isXSQL, options);
 						client.start();
 					} catch (SqlClientException e) {
 						// make space in terminal
