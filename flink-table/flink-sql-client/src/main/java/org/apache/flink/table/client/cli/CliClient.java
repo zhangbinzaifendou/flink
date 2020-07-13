@@ -689,18 +689,18 @@ public class CliClient {
 		printException(finalMessage, t);
 	}
 
-	private void printExecutionError(String message) {
+	public void printExecutionError(String message) {
 		terminal.writer().println(CliStrings.messageError(CliStrings.MESSAGE_SQL_EXECUTION_ERROR, message).toAnsi());
 		terminal.flush();
 	}
 
-	private void printException(String message, Throwable t) {
+	public void printException(String message, Throwable t) {
 		LOG.warn(message, t);
 		terminal.writer().println(CliStrings.messageError(message, t).toAnsi());
 		terminal.flush();
 	}
 
-	private void printError(String message) {
+	public void printError(String message) {
 		terminal.writer().println(CliStrings.messageError(message).toAnsi());
 		terminal.flush();
 	}

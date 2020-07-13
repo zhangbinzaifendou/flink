@@ -141,7 +141,20 @@ public final class SqlCommandParser {
 				if (operands.length < 2) {
 					return Optional.empty();
 				}
-				return Optional.of(new String[]{operands[0], operands[1]});
+				return Optional.of(new String[]{operands[0], operands[1], operands[2]});
+			}),
+
+		CREATE_FUNCTION(
+			"CREATE\\s+FUNCTION\\s+(\\S+)\\s+AS\\s+(\\S+)(\\s+LANGUAGE\\s+(\\S+))?",
+			(operands) -> {
+				String language = "JAVA";
+				if (operands.length < 2) {
+					return Optional.empty();
+				}
+				if (operands.length == 4) {
+					language = operands[3];
+				}
+				return Optional.of(new String[]{operands[0], operands[1], language});
 			}),
 
 		CREATE_DATABASE(
@@ -154,6 +167,10 @@ public final class SqlCommandParser {
 
 		DROP_VIEW(
 			"DROP\\s+VIEW\\s+(.*)",
+			SINGLE_OPERAND),
+
+		DROP_FUNCTION(
+			"DROP\\s+FUNCTION\\s+(.*)",
 			SINGLE_OPERAND),
 
 		ALTER_DATABASE(

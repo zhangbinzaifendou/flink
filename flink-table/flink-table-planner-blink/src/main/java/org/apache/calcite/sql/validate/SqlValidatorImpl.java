@@ -932,6 +932,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
 	private SqlNode validateScopedExpression(
 		SqlNode topNode,
 		SqlValidatorScope scope) {
+
 		SqlNode outermostNode = performUnconditionalRewrites(topNode, false);
 		cursorSet.add(outermostNode);
 		top = outermostNode;
@@ -3157,6 +3158,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
 	}
 
 	protected void validateJoin(SqlJoin join, SqlValidatorScope scope) {
+
 		SqlNode left = join.getLeft();
 		SqlNode right = join.getRight();
 		SqlNode condition = join.getCondition();

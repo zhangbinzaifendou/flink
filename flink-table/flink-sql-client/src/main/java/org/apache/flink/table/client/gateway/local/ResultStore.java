@@ -29,8 +29,8 @@ import org.apache.flink.table.client.config.entries.DeploymentEntry;
 import org.apache.flink.table.client.gateway.SqlExecutionException;
 import org.apache.flink.table.client.gateway.local.result.ChangelogCollectStreamResult;
 import org.apache.flink.table.client.gateway.local.result.DynamicResult;
-import org.apache.flink.table.client.gateway.local.result.MaterializedCollectBatchResult;
-import org.apache.flink.table.client.gateway.local.result.MaterializedCollectStreamResult;
+import org.apache.flink.table.client.gateway.local.result.QihooCollectBatchResult;
+import org.apache.flink.table.client.gateway.local.result.QihooCollectStreamResult;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -75,7 +75,14 @@ public class ResultStore {
 						gatewayPort,
 						classLoader);
 			} else {
-				return new MaterializedCollectStreamResult<>(
+//				return new MaterializedCollectStreamResult<>(
+//						schema,
+//						config,
+//						gatewayAddress,
+//						gatewayPort,
+//						env.getExecution().getMaxTableResultRows(),
+//						classLoader);
+				return new QihooCollectStreamResult<>(
 						schema,
 						config,
 						gatewayAddress,
@@ -89,7 +96,7 @@ public class ResultStore {
 			if (!env.getExecution().isTableMode()) {
 				throw new SqlExecutionException("Results of batch queries can only be served in table mode.");
 			}
-			return new MaterializedCollectBatchResult<>(schema, config, classLoader);
+			return new QihooCollectBatchResult<>(schema, config, classLoader);
 		}
 	}
 

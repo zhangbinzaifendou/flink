@@ -21,11 +21,10 @@ package org.apache.flink.table.client;
 import org.apache.flink.table.client.cli.CliClient;
 import org.apache.flink.table.client.cli.CliOptions;
 import org.apache.flink.table.client.cli.CliOptionsParser;
-import org.apache.flink.table.client.cli.QihooCliClient;
 import org.apache.flink.table.client.config.Environment;
 import org.apache.flink.table.client.gateway.Executor;
 import org.apache.flink.table.client.gateway.SessionContext;
-import org.apache.flink.table.client.gateway.local.QihooLocalExecutor;
+import org.apache.flink.table.client.gateway.local.LocalExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,9 +49,9 @@ import java.util.List;
  *
  * <p>Make sure that the FLINK_CONF_DIR environment variable is set.
  */
-public class SqlClient {
+public class QihooSqlClient {
 
-	private static final Logger LOG = LoggerFactory.getLogger(SqlClient.class);
+	private static final Logger LOG = LoggerFactory.getLogger(QihooSqlClient.class);
 
 	private final boolean isEmbedded;
 	private final CliOptions options;
@@ -62,7 +61,7 @@ public class SqlClient {
 
 	public static final String DEFAULT_SESSION_ID = "default";
 
-	public SqlClient(boolean isEmbedded, CliOptions options) {
+	public QihooSqlClient(boolean isEmbedded, CliOptions options) {
 		this.isEmbedded = isEmbedded;
 		this.options = options;
 	}
@@ -82,8 +81,7 @@ public class SqlClient {
 			} else {
 				libDirs = Collections.emptyList();
 			}
-//			final Executor executor = new LocalExecutor(options.getDefaults(), jars, libDirs);
-			final Executor executor = new QihooLocalExecutor(options.getDefaults(), jars, libDirs);
+			final Executor executor = new LocalExecutor(options.getDefaults(), jars, libDirs);
 			executor.start();
 
 			// create CLI client with session environment
@@ -120,8 +118,7 @@ public class SqlClient {
 	private void openCli(String sessionId, Executor executor) {
 		CliClient cli = null;
 		try {
-			cli = executor instanceof QihooLocalExecutor ? new QihooCliClient(sessionId, executor):
-				new CliClient(sessionId, executor);
+			cli = new CliClient(sessionId, executor);
 			// interactive CLI mode
 			if (options.getUpdateStatement() == null) {
 				cli.open();
@@ -176,7 +173,7 @@ public class SqlClient {
 					CliOptionsParser.printHelpEmbeddedModeClient();
 				} else {
 					try {
-						final SqlClient client = new SqlClient(true, options);
+						final QihooSqlClient client = new QihooSqlClient(true, options);
 						client.start();
 					} catch (SqlClientException e) {
 						// make space in terminal
