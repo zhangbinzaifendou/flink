@@ -614,6 +614,10 @@ public class ExecutionContext<ClusterID> {
 		env.setParallelism(environment.getExecution().getParallelism());
 		env.setMaxParallelism(environment.getExecution().getMaxParallelism());
 		env.setStreamTimeCharacteristic(environment.getExecution().getTimeCharacteristic());
+		if (environment.getExecution().getCheckpointInterval() > 0) {
+			env.enableCheckpointing(environment.getExecution().getCheckpointInterval(),
+				environment.getExecution().getCheckpointMode());
+		}
 		if (env.getStreamTimeCharacteristic() == TimeCharacteristic.EventTime) {
 			env.getConfig().setAutoWatermarkInterval(environment.getExecution().getPeriodicWatermarksInterval());
 		}

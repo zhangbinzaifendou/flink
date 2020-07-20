@@ -20,6 +20,7 @@ package org.apache.flink.table.client.config.entries;
 
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.client.config.ConfigUtil;
@@ -108,6 +109,12 @@ public class ExecutionEntry extends ConfigEntry {
 
 	public static final String EXECUTION_CURRENT_DATABASE = "current-database";
 
+	public static final String EXECUTION_CHECKPOINT_INTERVAL = "checkpoint.interval";
+
+	public static final String EXECUTION_CHECKPOINT_MODE = "checkpoint.mode";
+
+	public static final String EXECUTION_CHECKPOINT_MODE_EXACTLY_ONCE = "exactly-once";
+
 	private ExecutionEntry(DescriptorProperties properties) {
 		super(properties);
 	}
@@ -152,6 +159,8 @@ public class ExecutionEntry extends ConfigEntry {
 		properties.validateInt(EXECUTION_RESTART_STRATEGY_MAX_FAILURES_PER_INTERVAL, true, 1);
 		properties.validateString(EXECUTION_CURRENT_CATALOG, true, 1);
 		properties.validateString(EXECUTION_CURRENT_DATABASE, true, 1);
+		properties.validateLong(EXECUTION_CHECKPOINT_INTERVAL,true, 0);
+		properties.validateString(EXECUTION_CHECKPOINT_MODE, true, 1);
 	}
 
 	public EnvironmentSettings getEnvironmentSettings() {
@@ -308,6 +317,28 @@ public class ExecutionEntry extends ConfigEntry {
 
 	public Optional<String> getCurrentDatabase() {
 		return properties.getOptionalString(EXECUTION_CURRENT_DATABASE);
+	}
+
+	public long getCheckpointInterval() {
+		return properties.getOptionalLong(EXECUTION_CHECKPOINT_INTERVAL)
+			.orElseGet(() -> useDefaultValue(EXECUTION_CHECKPOINT_INTERVAL, -1L));
+	}
+
+	public CheckpointingMode getCheckpointMode() {
+		return properties.getOptionalString(EXECUTION_CHECKPOINT_MODE)
+			.flatMap((v) -> {
+				switch (v) {
+					case EXECUTION_CHECKPOINT_MODE_EXACTLY_ONCE:
+						return Optional.of(CheckpointingMode.EXACTLY_ONCE);
+					default:
+						return Optional.of(CheckpointingMode.AT_LEAST_ONCE);
+				}
+			})
+			.orElseGet(() ->
+				useDefaultValue(
+					EXECUTION_CHECKPOINT_MODE,
+					CheckpointingMode.EXACTLY_ONCE,
+					EXECUTION_CHECKPOINT_MODE_EXACTLY_ONCE));
 	}
 
 	public boolean isChangelogMode() {
