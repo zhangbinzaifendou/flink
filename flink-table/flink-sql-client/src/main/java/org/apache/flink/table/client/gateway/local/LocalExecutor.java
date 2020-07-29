@@ -764,4 +764,8 @@ public class LocalExecutor implements Executor {
 		}
 		return builder.build();
 	}
+
+	public Configuration getFlinkConfig() {
+		return flinkConfig;
+	}
 }

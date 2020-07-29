@@ -34,7 +34,9 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.client.cli.CliFrontendParser.PYARCHIVE_OPTION;
@@ -136,6 +138,15 @@ public class CliOptionsParser {
 							"auto-generate one under your user's home directory.")
 			.build();
 
+	public static final Option OPTION_CONF = Option
+		.builder("c")
+		.required(false)
+		.longOpt("conf")
+		.numberOfArgs(1)
+		.argName("dynamic conf")
+		.desc("dynamic conf")
+		.build();
+
 	private static final Options EMBEDDED_MODE_CLIENT_OPTIONS = getEmbeddedModeClientOptions(new Options());
 	private static final Options GATEWAY_MODE_CLIENT_OPTIONS = getGatewayModeClientOptions(new Options());
 	private static final Options GATEWAY_MODE_GATEWAY_OPTIONS = getGatewayModeGatewayOptions(new Options());
@@ -157,6 +168,7 @@ public class CliOptionsParser {
 		options.addOption(PYREQUIREMENTS_OPTION);
 		options.addOption(PYARCHIVE_OPTION);
 		options.addOption(PYEXEC_OPTION);
+		options.addOption(OPTION_CONF);
 		return options;
 	}
 
@@ -261,6 +273,13 @@ public class CliOptionsParser {
 		try {
 			DefaultParser parser = new DefaultParser();
 			CommandLine line = parser.parse(EMBEDDED_MODE_CLIENT_OPTIONS, args, true);
+			//get all --conf values
+			Map<String, String> map = new HashMap<String, String>();
+			map.putAll(line.getOptionProperties("conf").entrySet()
+				.stream()
+				.collect(Collectors.toMap(e -> e.getKey().toString().split("=")[0],
+					e -> e.getKey().toString().split("=")[1])));
+
 			return new CliOptions(
 				line.hasOption(CliOptionsParser.OPTION_HELP.getOpt()),
 				checkSessionId(line),
@@ -270,7 +289,8 @@ public class CliOptionsParser {
 				checkUrls(line, CliOptionsParser.OPTION_LIBRARY),
 				line.getOptionValue(CliOptionsParser.OPTION_UPDATE.getOpt()),
 				line.getOptionValue(CliOptionsParser.OPTION_HISTORY.getOpt()),
-				getPythonConfiguration(line)
+				getPythonConfiguration(line),
+				map
 			);
 		}
 		catch (ParseException e) {
