@@ -18,16 +18,16 @@
 
 package org.apache.flink.table.client.cli;
 
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.table.client.SqlClientException;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.jobgraph.SavepointConfigOptions;
+import org.apache.flink.table.client.SqlClientException;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
@@ -147,6 +147,15 @@ public class CliOptionsParser {
 		.desc("dynamic conf")
 		.build();
 
+	public static final Option OPTION_SAVEPOINT = Option
+		.builder("S")
+		.required(false)
+		.longOpt("savepoint")
+		.numberOfArgs(1)
+		.argName("savepoint dir")
+		.desc("savepoint dir")
+		.build();
+
 	private static final Options EMBEDDED_MODE_CLIENT_OPTIONS = getEmbeddedModeClientOptions(new Options());
 	private static final Options GATEWAY_MODE_CLIENT_OPTIONS = getGatewayModeClientOptions(new Options());
 	private static final Options GATEWAY_MODE_GATEWAY_OPTIONS = getGatewayModeGatewayOptions(new Options());
@@ -169,6 +178,7 @@ public class CliOptionsParser {
 		options.addOption(PYARCHIVE_OPTION);
 		options.addOption(PYEXEC_OPTION);
 		options.addOption(OPTION_CONF);
+		options.addOption(OPTION_SAVEPOINT);
 		return options;
 	}
 
@@ -280,6 +290,11 @@ public class CliOptionsParser {
 				.collect(Collectors.toMap(e -> e.getKey().toString().split("=")[0],
 					e -> e.getKey().toString().split("=")[1])));
 
+			// parse -S hdfs://xxx
+			String savepointDir = line.getOptionValue(CliOptionsParser.OPTION_SAVEPOINT.getOpt());
+			if (null != savepointDir) {
+				map.put(SavepointConfigOptions.SAVEPOINT_PATH.key(), savepointDir);
+			}
 			return new CliOptions(
 				line.hasOption(CliOptionsParser.OPTION_HELP.getOpt()),
 				checkSessionId(line),

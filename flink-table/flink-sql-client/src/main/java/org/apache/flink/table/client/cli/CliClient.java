@@ -27,7 +27,7 @@ import org.apache.flink.table.client.gateway.Executor;
 import org.apache.flink.table.client.gateway.ProgramTargetDescriptor;
 import org.apache.flink.table.client.gateway.ResultDescriptor;
 import org.apache.flink.table.client.gateway.SqlExecutionException;
-
+import org.apache.flink.table.operations.ddl.CreateCatalogFunctionOperation;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
@@ -48,6 +48,8 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -211,6 +213,40 @@ public class CliClient {
 			final Optional<SqlCommandCall> cmdCall = parseCommand(line);
 			cmdCall.ifPresent(this::callCommand);
 		}
+	}
+
+	/**
+	 * Opens the interactive CLI shell.
+	 */
+	public void recoveryJobBySavepoint(
+		Map<String, String> variables,
+		List<String> functions,
+		List<String> tables,
+		String sql) {
+		// print welcome
+		terminal.writer().append(CliStrings.MESSAGE_WELCOME);
+		// make some space to previous command
+		terminal.writer().append("\n");
+		terminal.flush();
+
+		List<String> commands = new ArrayList<>();
+		// 1 set
+		 variables.entrySet().stream().forEach( entry -> {
+		 	commands.add("set " + entry.getKey() + " = " + entry.getValue());
+		 });
+		// 2 create function
+		functions.stream().forEach(function -> {
+			commands.add(new String(Base64.getDecoder().decode(function.getBytes())));
+		});
+		// 3 create table
+		tables.stream().forEach(table -> {
+			commands.add(new String(Base64.getDecoder().decode(table.getBytes())));
+		});
+		// 4 execute sql
+		commands.add(sql);
+		commands.forEach(command -> {
+			parseCommand(command).ifPresent(this::callCommand);
+		});
 	}
 
 	/**
@@ -641,6 +677,10 @@ public class CliClient {
 		try {
 			executor.executeSql(sessionId, ddl);
 			printInfo(successMessage);
+			if (executor.getSqlParser(sessionId).parse(ddl).get(0) instanceof CreateCatalogFunctionOperation) {
+				// set functions to checkpoint metadata
+				// executor.get
+			}
 		} catch (SqlExecutionException e) {
 			printExecutionException(errorMessage, e);
 		}

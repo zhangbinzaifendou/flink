@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -203,6 +204,8 @@ public class CheckpointCoordinator {
 
 	private final CheckpointRequestDecider requestDecider;
 
+	private Properties properties = new Properties();
+
 	// --------------------------------------------------------------------------------------------
 
 	public CheckpointCoordinator(
@@ -318,6 +321,7 @@ public class CheckpointCoordinator {
 			this.minPauseBetweenCheckpoints,
 			this.pendingCheckpoints::size,
 			this.lock);
+		this.properties = chkConfig.getProperties();
 	}
 
 	// --------------------------------------------------------------------------------------------
@@ -658,7 +662,8 @@ public class CheckpointCoordinator {
 			props,
 			checkpointStorageLocation,
 			executor,
-			onCompletionPromise);
+			onCompletionPromise,
+			properties);
 
 		if (statsTracker != null) {
 			PendingCheckpointStats callback = statsTracker.reportPendingCheckpoint(

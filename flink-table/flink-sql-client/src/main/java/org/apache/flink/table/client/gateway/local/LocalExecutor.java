@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.client.gateway.local;
 
+import org.apache.commons.cli.Options;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.dag.Pipeline;
@@ -36,6 +37,7 @@ import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.plugin.PluginUtils;
+import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.TableResult;
@@ -63,8 +65,6 @@ import org.apache.flink.table.types.utils.DataTypeUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.JarUtils;
 import org.apache.flink.util.StringUtils;
-
-import org.apache.commons.cli.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,6 +74,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -222,9 +223,11 @@ public class LocalExecutor implements Executor {
 		if (this.contextMap.containsKey(sessionId)) {
 			throw new SqlExecutionException("Found another session with the same session identifier: " + sessionId);
 		} else {
+			ExecutionContext context = createExecutionContextBuilder(sessionContext).build();
+			context.getStreamExecEnv().getCheckpointConfig().configure(context.getFlinkConfig());
 			this.contextMap.put(
 					sessionId,
-					createExecutionContextBuilder(sessionContext).build());
+				context);
 		}
 		return sessionId;
 	}
@@ -300,6 +303,12 @@ public class LocalExecutor implements Executor {
 				.sessionState(context.getSessionState())
 				.build();
 		this.contextMap.put(sessionId, newContext);
+		// set variables to checkpoint metadata
+		CheckpointConfig checkpointConfig = context.getStreamExecEnv().getCheckpointConfig();
+		if (checkpointConfig.isCheckpointingEnabled())
+			((Map<String, String>)checkpointConfig.getProperties()
+				.getOrDefault("flink.sql.variables", new HashMap<String, String>()))
+				.put(key, value);
 	}
 
 	@Override
@@ -601,6 +610,11 @@ public class LocalExecutor implements Executor {
 	}
 
 	private <C> ResultDescriptor executeQueryInternal(String sessionId, ExecutionContext<C> context, String query) {
+		CheckpointConfig checkpointConfig = context.getStreamExecEnv().getCheckpointConfig();
+		 if (checkpointConfig.isCheckpointingEnabled())
+			 checkpointConfig.getProperties().setProperty(
+			 	"flink.sql.string",
+				 Base64.getEncoder().encodeToString(query.getBytes()));
 		// create table
 		final Table table = createTable(context, context.getTableEnvironment(), query);
 		// TODO refactor this after Table#execute support all kinds of changes
@@ -676,7 +690,16 @@ public class LocalExecutor implements Executor {
 	private <C> Table createTable(ExecutionContext<C> context, TableEnvironment tableEnv, String selectQuery) {
 		// parse and validate query
 		try {
-			return context.wrapClassLoader(() -> tableEnv.sqlQuery(selectQuery));
+			return context.wrapClassLoader(() -> {
+				Table table = tableEnv.sqlQuery(selectQuery);
+				// set create table to checkpoint metadata
+				CheckpointConfig checkpointConfig = context.getStreamExecEnv().getCheckpointConfig();
+				if (checkpointConfig.isCheckpointingEnabled())
+					((List<String>)checkpointConfig.getProperties()
+						.getOrDefault("flink.sql.tables", new ArrayList<String>()))
+						.add(new String(Base64.getEncoder().encode(selectQuery.getBytes())));
+				return table;
+			});
 		} catch (Throwable t) {
 			// catch everything such that the query does not crash the executor
 			throw new SqlExecutionException("Invalid SQL statement.", t);
@@ -687,6 +710,11 @@ public class LocalExecutor implements Executor {
 	 * Applies the given update statement to the given table environment with query configuration.
 	 */
 	private <C> void applyUpdate(ExecutionContext<C> context, String updateStatement) {
+		CheckpointConfig checkpointConfig = context.getStreamExecEnv().getCheckpointConfig();
+		if (checkpointConfig.isCheckpointingEnabled())
+			checkpointConfig.getProperties().setProperty(
+				"flink.sql.string",
+				Base64.getEncoder().encodeToString(updateStatement.getBytes()));
 		final TableEnvironment tableEnv = context.getTableEnvironment();
 		try {
 			// TODO replace sqlUpdate with executeSql

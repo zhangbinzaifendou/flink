@@ -23,9 +23,10 @@ import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.streaming.api.CheckpointingMode;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Properties;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.flink.runtime.checkpoint.CheckpointFailureManager.UNLIMITED_TOLERABLE_FAILURE_NUMBER;
@@ -100,6 +101,11 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * The default value is -1 meaning undetermined and not set via {@link #setTolerableCheckpointFailureNumber(int)}.
 	 * */
 	private int tolerableCheckpointFailureNumber = UNDEFINED_TOLERABLE_CHECKPOINT_NUMBER;
+
+	/**
+	 * set propeties such sql string select * from xxx into checkpoint/savepoint dir
+	 */
+	private Properties properties = new Properties();
 
 	// ------------------------------------------------------------------------
 
@@ -432,6 +438,22 @@ public class CheckpointConfig implements java.io.Serializable {
 	@PublicEvolving
 	public ExternalizedCheckpointCleanup getExternalizedCheckpointCleanup() {
 		return externalizedCheckpointCleanup;
+	}
+
+	/**
+	 * set properties
+	 */
+	public void setProperties(Properties properties) {
+		this.properties = properties;
+	}
+
+	/**
+	 * retrun properties for savepoint/checkpoint
+	 * @return
+	 */
+	@PublicEvolving
+	public Properties getProperties() {
+		return properties;
 	}
 
 	/**

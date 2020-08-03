@@ -894,4 +894,8 @@ public class ExecutionContext<ClusterID> {
 			return new SessionState(catalogManager, moduleManager, functionCatalog);
 		}
 	}
+
+	public StreamExecutionEnvironment getStreamExecEnv() {
+		return streamExecEnv;
+	}
 }
