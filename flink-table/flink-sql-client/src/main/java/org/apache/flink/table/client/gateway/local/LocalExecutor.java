@@ -772,4 +772,8 @@ public class LocalExecutor implements Executor {
 	public ResultStore getResultStore() {
 		return resultStore;
 	}
+
+	public Configuration getFlinkConfig() {
+		return flinkConfig;
+	}
 }

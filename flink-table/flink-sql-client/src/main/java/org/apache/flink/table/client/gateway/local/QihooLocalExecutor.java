@@ -47,11 +47,11 @@ public class QihooLocalExecutor extends LocalExecutor {
 
 	@Override
 	public void setSessionProperty(String sessionId, String key, String value) throws SqlExecutionException {
-//		if (key!=null && key.equals("execution.current-catalog")) {
-//			useCatalog(sessionId, value);
-//		} else if (key!=null && key.equals("execution.current-database")) {
-//			useDatabase(sessionId, value);
-//		}
+		if (key!=null && key.equals("execution.current-catalog")) {
+			useCatalog(sessionId, value);
+		} else if (key!=null && key.equals("execution.current-database")) {
+			useDatabase(sessionId, value);
+		}
 		super.setSessionProperty(sessionId, key, value);
 	}
 

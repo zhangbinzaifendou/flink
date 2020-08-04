@@ -91,8 +91,14 @@ public class SqlClient {
 			} else {
 				libDirs = Collections.emptyList();
 			}
-//			final Executor executor = new LocalExecutor(options.getDefaults(), jars, libDirs);
-			final Executor executor = new QihooLocalExecutor(options.getDefaults(), jars, libDirs);
+
+			Map<String, String> map = new HashMap<String, String>();
+			if (options.getMap() != null) {
+				map = options.getMap();
+			}
+			final QihooLocalExecutor executor = new QihooLocalExecutor(options.getDefaults(), jars, libDirs);
+			map.entrySet().stream().forEach(
+				entry -> executor.getFlinkConfig().setString(entry.getKey(), entry.getValue()));
 			executor.start();
 
 			// create CLI client with session environment
