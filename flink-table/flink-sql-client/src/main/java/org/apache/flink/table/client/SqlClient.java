@@ -18,16 +18,16 @@
 
 package org.apache.flink.table.client;
 
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.table.client.cli.CliClient;
 import org.apache.flink.table.client.cli.CliOptions;
 import org.apache.flink.table.client.cli.CliOptionsParser;
+import org.apache.flink.table.client.cli.QihooCliClient;
 import org.apache.flink.table.client.config.Environment;
 import org.apache.flink.table.client.gateway.Executor;
 import org.apache.flink.table.client.gateway.SessionContext;
-import org.apache.flink.table.client.gateway.local.LocalExecutor;
-
-import org.apache.commons.lang3.SystemUtils;
+import org.apache.flink.table.client.gateway.local.QihooLocalExecutor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,7 +91,8 @@ public class SqlClient {
 			} else {
 				libDirs = Collections.emptyList();
 			}
-			final Executor executor = new LocalExecutor(options.getDefaults(), jars, libDirs);
+//			final Executor executor = new LocalExecutor(options.getDefaults(), jars, libDirs);
+			final Executor executor = new QihooLocalExecutor(options.getDefaults(), jars, libDirs);
 			executor.start();
 
 			// create CLI client with session environment
@@ -136,7 +137,9 @@ public class SqlClient {
 				historyFilePath = Paths.get(System.getProperty("user.home"),
 						SystemUtils.IS_OS_WINDOWS ? "flink-sql-history" : ".flink-sql-history");
 			}
-			cli = new CliClient(sessionId, executor, historyFilePath);
+
+			cli = executor instanceof QihooLocalExecutor ? new QihooCliClient(sessionId, executor, historyFilePath):
+				new CliClient(sessionId, executor, historyFilePath);
 			// interactive CLI mode
 			if (options.getUpdateStatement() == null) {
 				cli.open();

@@ -29,8 +29,7 @@ import org.apache.flink.table.client.config.entries.DeploymentEntry;
 import org.apache.flink.table.client.gateway.SqlExecutionException;
 import org.apache.flink.table.client.gateway.local.result.ChangelogCollectStreamResult;
 import org.apache.flink.table.client.gateway.local.result.DynamicResult;
-import org.apache.flink.table.client.gateway.local.result.MaterializedCollectBatchResult;
-import org.apache.flink.table.client.gateway.local.result.MaterializedCollectStreamResult;
+import org.apache.flink.table.client.gateway.local.result.QihooCollectStreamResult;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -75,7 +74,7 @@ public class ResultStore {
 						gatewayPort,
 						classLoader);
 			} else {
-				return new MaterializedCollectStreamResult<>(
+				return new QihooCollectStreamResult<>(
 						schema,
 						config,
 						gatewayAddress,
@@ -87,7 +86,7 @@ public class ResultStore {
 		} else {
 			// Batch Execution
 			if (env.getExecution().isTableMode() || env.getExecution().isTableauMode()) {
-				return new MaterializedCollectBatchResult<>(schema, config, classLoader);
+				return new QihooCollectBatchResult<>(schema, config, classLoader);
 			} else {
 				throw new SqlExecutionException(
 						"Results of batch queries can only be served in table or tableau mode.");

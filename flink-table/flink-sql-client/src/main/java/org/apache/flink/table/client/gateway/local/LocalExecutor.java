@@ -249,7 +249,7 @@ public class LocalExecutor implements Executor {
 	 * Get the existed {@link ExecutionContext} from contextMap, or thrown exception if does not exist.
 	 */
 	@VisibleForTesting
-	protected ExecutionContext<?> getExecutionContext(String sessionId) throws SqlExecutionException {
+	public ExecutionContext<?> getExecutionContext(String sessionId) throws SqlExecutionException {
 		ExecutionContext<?> context = this.contextMap.get(sessionId);
 		if (context == null) {
 			throw new SqlExecutionException("Invalid session identifier: " + sessionId);
@@ -763,5 +763,13 @@ public class LocalExecutor implements Executor {
 			builder.field(schema.getFieldNames()[i], convertedType);
 		}
 		return builder.build();
+	}
+
+	public ConcurrentHashMap<String, ExecutionContext<?>> getContextMap() {
+		return contextMap;
+	}
+
+	public ResultStore getResultStore() {
+		return resultStore;
 	}
 }
