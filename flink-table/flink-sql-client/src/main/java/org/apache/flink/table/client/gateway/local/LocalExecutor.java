@@ -18,6 +18,7 @@
 
 package org.apache.flink.table.client.gateway.local;
 
+import org.apache.commons.cli.Options;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.dag.Pipeline;
@@ -63,8 +64,6 @@ import org.apache.flink.table.types.utils.DataTypeUtils;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.JarUtils;
 import org.apache.flink.util.StringUtils;
-
-import org.apache.commons.cli.Options;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -763,17 +762,5 @@ public class LocalExecutor implements Executor {
 			builder.field(schema.getFieldNames()[i], convertedType);
 		}
 		return builder.build();
-	}
-
-	public ConcurrentHashMap<String, ExecutionContext<?>> getContextMap() {
-		return contextMap;
-	}
-
-	public ResultStore getResultStore() {
-		return resultStore;
-	}
-
-	public Configuration getFlinkConfig() {
-		return flinkConfig;
 	}
 }

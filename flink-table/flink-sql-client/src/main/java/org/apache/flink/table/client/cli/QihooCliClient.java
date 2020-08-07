@@ -41,8 +41,11 @@ import java.io.IOError;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 
 /**
  * SQL CLI client.
@@ -217,6 +220,12 @@ public class QihooCliClient extends CliClient {
 			"setSessionProperty",
 			new Class[]{String.class, String.class, String.class},
 			new Object[]{getSessionId(), "execution.current-catalog", cmdCall.operands[0]});
+		Properties properties = ((QihooLocalExecutor) getExecutor()).getProperties();
+		List<String> list = (List<String>) properties.getOrDefault("flink.sql.uses", new ArrayList<String>());
+		if (list.size() >0 ) {
+			properties.put("flink.sql.uses", list);
+		}
+		list.add(cmdCall.operands[0]);
 	}
 
 	private void callUseDatabase(SqlCommandCall cmdCall) {
@@ -226,6 +235,12 @@ public class QihooCliClient extends CliClient {
 			"setSessionProperty",
 			new Class[]{String.class, String.class, String.class},
 			new Object[]{getSessionId(), "execution.current-database", cmdCall.operands[0]});
+		Properties properties = ((QihooLocalExecutor) getExecutor()).getProperties();
+		List<String> list = (List<String>) properties.getOrDefault("flink.sql.uses", new ArrayList<String>());
+		if (list.size() >0 ) {
+			properties.put("flink.sql.uses", list);
+		}
+		list.add(cmdCall.operands[0]);
 	}
 
 	@Override
@@ -260,5 +275,49 @@ public class QihooCliClient extends CliClient {
 		} catch (IOException e) {
 			throw new SqlClientException("Error opening command line interface.", e);
 		}
+	}
+
+	/**
+	 * Opens the interactive CLI shell.
+	 */
+	public void recoveryJobBySavepoint(
+		List<String> uses,
+		Map<String, String> variables,
+		List<String> functions,
+		List<String> tables,
+		String sql) {
+		// print welcome
+		getTerminal().writer().append(CliStrings.MESSAGE_WELCOME);
+		// make some space to previous command
+		getTerminal().writer().append("\n");
+		getTerminal().flush();
+		List<String> commands = new ArrayList<>();
+		// 0 uses
+		uses.stream().forEach(use -> {
+			commands.add(use);
+		});
+		// 1 set
+		variables.entrySet().stream().forEach( entry -> {
+			commands.add("set " + entry.getKey() + " = " + entry.getValue());
+		});
+		// 2 create function
+		functions.stream().forEach(function -> {
+			commands.add(new String(Base64.getDecoder().decode(function.getBytes())));
+		});
+		// 3 create table
+		tables.stream().forEach(table -> {
+			commands.add(new String(Base64.getDecoder().decode(table.getBytes())));
+		});
+		// 4 execute sql
+		commands.add(sql);
+
+		commands.forEach(command -> {
+			((Optional<SqlCommandCall>)PrivateUtil.invokeParentMethod(
+				this,
+				"parseCommand",
+				new Class[] {String.class},
+				new Object[] {command}
+			)).ifPresent(this::callCommand);
+		});
 	}
 }

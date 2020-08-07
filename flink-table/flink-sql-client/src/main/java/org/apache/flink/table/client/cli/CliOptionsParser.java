@@ -18,16 +18,16 @@
 
 package org.apache.flink.table.client.cli;
 
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.table.client.SqlClientException;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.jobgraph.SavepointConfigOptions;
+import org.apache.flink.table.client.SqlClientException;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;

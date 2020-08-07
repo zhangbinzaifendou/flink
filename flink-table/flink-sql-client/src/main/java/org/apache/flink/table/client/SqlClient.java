@@ -18,28 +18,41 @@
 
 package org.apache.flink.table.client;
 
+import org.apache.commons.collections.map.HashedMap;
 import org.apache.commons.lang3.SystemUtils;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.table.client.cli.CliClient;
+import org.apache.flink.core.fs.FSDataInputStream;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.runtime.jobgraph.SavepointConfigOptions;
+import org.apache.flink.runtime.state.filesystem.AbstractFsCheckpointStorage;
 import org.apache.flink.table.client.cli.CliOptions;
 import org.apache.flink.table.client.cli.CliOptionsParser;
+import org.apache.flink.table.client.cli.PrivateUtil;
 import org.apache.flink.table.client.cli.QihooCliClient;
 import org.apache.flink.table.client.config.Environment;
 import org.apache.flink.table.client.gateway.Executor;
 import org.apache.flink.table.client.gateway.SessionContext;
+import org.apache.flink.table.client.gateway.local.LocalExecutor;
 import org.apache.flink.table.client.gateway.local.QihooLocalExecutor;
+import org.apache.flink.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.apache.flink.table.client.config.entries.ConfigurationEntry.create;
 import static org.apache.flink.table.client.config.entries.ConfigurationEntry.merge;
@@ -97,8 +110,15 @@ public class SqlClient {
 				map = options.getMap();
 			}
 			final QihooLocalExecutor executor = new QihooLocalExecutor(options.getDefaults(), jars, libDirs);
-			map.entrySet().stream().forEach(
-				entry -> executor.getFlinkConfig().setString(entry.getKey(), entry.getValue()));
+			try {
+				final Configuration flinkConfig = (Configuration) PrivateUtil.getParentPrivateVar(
+												LocalExecutor.class,
+												"flinkConfig").get(executor);
+				map.entrySet().stream().forEach(
+					entry -> flinkConfig.setString(entry.getKey(), entry.getValue()));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 			executor.start();
 
 			// create CLI client with session environment
@@ -134,7 +154,7 @@ public class SqlClient {
 	 * @param executor executor
 	 */
 	private void openCli(String sessionId, Executor executor) {
-		CliClient cli = null;
+		QihooCliClient cli = null;
 		try {
 			Path historyFilePath;
 			if (options.getHistoryFilePath() != null) {
@@ -144,19 +164,46 @@ public class SqlClient {
 						SystemUtils.IS_OS_WINDOWS ? "flink-sql-history" : ".flink-sql-history");
 			}
 
-			cli = executor instanceof QihooLocalExecutor ? new QihooCliClient(sessionId, executor, historyFilePath):
-				new CliClient(sessionId, executor, historyFilePath);
+			cli = new QihooCliClient(sessionId, executor, historyFilePath);
 			// interactive CLI mode
-			if (options.getUpdateStatement() == null) {
-				cli.open();
-			}
-			// execute single update statement
-			else {
-				final boolean success = cli.submitUpdate(options.getUpdateStatement());
-				if (!success) {
-					throw new SqlClientException("Could not submit given SQL update statement to cluster.");
+			String savepointDir = options.getMap().get(SavepointConfigOptions.SAVEPOINT_PATH.key());
+			Properties properties = new Properties();
+			if (!StringUtils.isNullOrWhitespaceOnly(savepointDir) && (properties = paserSqlPropertiesFromSavePointMetaData(savepointDir)).size() > 0 ) {
+				String sql  = null;
+				Map<String, String> variables = new HashedMap();
+				List<String> functions = new ArrayList<>();
+				List<String> tables = new ArrayList<>();
+				List<String> uses = new ArrayList<>();
+				try {
+					// 0 parse use xxx
+					uses = (List<String>) properties.getOrDefault("flink.sql.uses", uses);
+					// 1 parse set execution variables
+					variables = (Map<String, String>) properties.getOrDefault("flink.sql.variables", variables);
+					// 2 parse function
+					functions = (List<String>) properties.getOrDefault("flink.sql.functions", functions);
+					// 3 parse create table
+					tables = (List<String>) properties.getOrDefault("flink.sql.tables", tables);
+					// 4 parse execution sql
+					sql = new String(Base64.getDecoder().decode(properties.getProperty("flink.sql.string")));
+				} catch (Exception e) {
+					throw new SqlClientException("parse sql from savepoint metadata error.", e);
+				}
+				cli.recoveryJobBySavepoint(uses, variables, functions, tables, sql);
+			} else {
+				// interactive CLI mode
+				if (options.getUpdateStatement() == null) {
+					cli.open();
+				}
+				// execute single update statement
+				else {
+					final boolean success = cli.submitUpdate(options.getUpdateStatement());
+					if (!success) {
+						throw new SqlClientException("Could not submit given SQL update statement to cluster.");
+					}
 				}
 			}
+		} catch (Exception e) {
+			throw new SqlClientException(e.getMessage());
 		} finally {
 			if (cli != null) {
 				cli.close();
@@ -250,6 +297,38 @@ public class SqlClient {
 			System.out.println("\nShutting down the session...");
 			executor.closeSession(sessionId);
 			System.out.println("done.");
+		}
+	}
+
+	private Properties paserSqlPropertiesFromSavePointMetaData(String savepointDir) throws IOException, ClassNotFoundException {
+		Properties properties = new Properties();
+		org.apache.flink.core.fs.Path path = new org.apache.flink.core.fs.Path(savepointDir);
+		FileSystem fs = FileSystem.get(path.toUri());
+
+		try (
+			FSDataInputStream fsDataInputStream = fs.open(new org.apache.flink.core.fs.Path(path, AbstractFsCheckpointStorage.METADATA_FILE_NAME));
+			DataInputStream dis = new DataInputStream(fsDataInputStream);
+		){
+			int magic = dis.readInt();
+			int version = dis.readInt();
+			int bytesLength = dis.readInt();
+			if (bytesLength > 0) {
+				byte[] bytes = new byte[bytesLength];
+				dis.readFully(bytes);
+				properties = byteArrayToObject(bytes);
+			} else {
+				throw new SqlClientException("savepoint dir " + savepointDir + " metadata does not contain sql string.");
+			}
+		}
+		return properties;
+	}
+
+	private Properties byteArrayToObject(byte[] bytes) throws IOException, ClassNotFoundException {
+		try (
+			ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+			ObjectInputStream ois = new ObjectInputStream(bais);
+		) {
+			return (Properties) ois.readObject();
 		}
 	}
 }
