@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -125,6 +126,8 @@ public class PendingCheckpoint {
 
 	private CheckpointException failureCause;
 
+	private Properties properties = new Properties();
+
 	// --------------------------------------------------------------------------------------------
 
 	public PendingCheckpoint(
@@ -160,6 +163,32 @@ public class PendingCheckpoint {
 		this.onCompletionPromise = checkNotNull(onCompletionPromise);
 	}
 
+	public PendingCheckpoint(
+		JobID jobId,
+		long checkpointId,
+		long checkpointTimestamp,
+		Map<ExecutionAttemptID, ExecutionVertex> verticesToConfirm,
+		Collection<OperatorID> operatorCoordinatorsToConfirm,
+		Collection<String> masterStateIdentifiers,
+		CheckpointProperties props,
+		CheckpointStorageLocation targetLocation,
+		Executor executor,
+		CompletableFuture<CompletedCheckpoint> onCompletionPromise,
+		Properties properties) {
+		this(
+			jobId,
+			checkpointId,
+			checkpointTimestamp,
+			verticesToConfirm,
+			operatorCoordinatorsToConfirm,
+			masterStateIdentifiers,
+			props,
+			targetLocation,
+			executor,
+			onCompletionPromise
+		);
+		this.properties = properties;
+	}
 	// --------------------------------------------------------------------------------------------
 
 	// ------------------------------------------------------------------------
@@ -243,6 +272,10 @@ public class PendingCheckpoint {
 		return props;
 	}
 
+	public Properties getProperties() {
+		return properties;
+	}
+
 	/**
 	 * Sets the callback for tracking this pending checkpoint.
 	 *
@@ -304,7 +337,7 @@ public class PendingCheckpoint {
 				final CompletedCheckpointStorageLocation finalizedLocation;
 
 				try (CheckpointMetadataOutputStream out = targetLocation.createMetadataOutputStream()) {
-					Checkpoints.storeCheckpointMetadata(savepoint, out);
+					Checkpoints.storeCheckpointMetadata(savepoint, out, properties);
 					finalizedLocation = out.closeAndFinalizeCheckpoint();
 				}
 

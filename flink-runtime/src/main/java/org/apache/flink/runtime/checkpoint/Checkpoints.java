@@ -35,20 +35,21 @@ import org.apache.flink.runtime.state.StreamStateHandle;
 import org.apache.flink.runtime.state.memory.MemoryStateBackend;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -71,6 +72,16 @@ public class Checkpoints {
 	//  Writing out checkpoint metadata
 	// ------------------------------------------------------------------------
 
+	private static Properties properties = new Properties();
+
+	public static void storeCheckpointMetadata(
+		CheckpointMetadata checkpointMetadata,
+		OutputStream out,
+		Properties props) throws IOException {
+		properties = props;
+		storeCheckpointMetadata(checkpointMetadata, out);
+	}
+
 	public static void storeCheckpointMetadata(
 			CheckpointMetadata checkpointMetadata,
 			OutputStream out) throws IOException {
@@ -87,7 +98,26 @@ public class Checkpoints {
 		out.writeInt(HEADER_MAGIC_NUMBER);
 
 		out.writeInt(MetadataV3Serializer.VERSION);
+
+		if (properties.size() > 0) {
+			byte[] bytes = objectToByteArray(properties);
+			out.writeInt(bytes.length);
+			out.write(bytes);
+		} else {
+			out.writeInt(0);
+		}
 		MetadataV3Serializer.serialize(checkpointMetadata, out);
+	}
+
+	public static byte[] objectToByteArray(Object obj) throws IOException {
+		try (
+			ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+			ObjectOutputStream out = new ObjectOutputStream(byteStream)
+		) {
+			out.writeObject(obj);
+			out.flush();
+			return byteStream.toByteArray();
+		}
 	}
 
 	// ------------------------------------------------------------------------
@@ -102,6 +132,11 @@ public class Checkpoints {
 
 		if (magicNumber == HEADER_MAGIC_NUMBER) {
 			final int version = in.readInt();
+			final int propsLen = in.readInt();
+			if (propsLen > 0) {
+				byte[] props = new byte[propsLen];
+				in.readFully(props);
+			}
 			final MetadataSerializer serializer = MetadataSerializers.getSerializer(version);
 			return serializer.deserialize(in, classLoader, externalPointer);
 		}

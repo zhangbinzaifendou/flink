@@ -25,6 +25,7 @@ import org.apache.flink.util.Preconditions;
 
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.Properties;
 
 /**
  * Configuration settings for the {@link CheckpointCoordinator}. This includes the checkpoint
@@ -63,6 +64,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	private final boolean isUnalignedCheckpointsEnabled;
 
+	private final Properties properties;
+
 	/**
 	 * @deprecated use {@link #builder()}.
 	 */
@@ -87,7 +90,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			isExactlyOnce,
 			isPreferCheckpointForRecovery,
 			tolerableCpFailureNumber,
-			isUnalignedCheckpoint);
+			isUnalignedCheckpoint,
+			null);
 	}
 
 	private CheckpointCoordinatorConfiguration(
@@ -99,7 +103,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 			boolean isExactlyOnce,
 			boolean isPreferCheckpointForRecovery,
 			int tolerableCpFailureNumber,
-			boolean isUnalignedCheckpointsEnabled) {
+			boolean isUnalignedCheckpointsEnabled,
+			Properties properties) {
 
 		// sanity checks
 		if (checkpointInterval < MINIMAL_CHECKPOINT_TIME || checkpointTimeout < MINIMAL_CHECKPOINT_TIME ||
@@ -119,6 +124,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		this.isPreferCheckpointForRecovery = isPreferCheckpointForRecovery;
 		this.tolerableCheckpointFailureNumber = tolerableCpFailureNumber;
 		this.isUnalignedCheckpointsEnabled = isUnalignedCheckpointsEnabled;
+		this.properties = properties;
 	}
 
 	public long getCheckpointInterval() {
@@ -155,6 +161,10 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 	public boolean isUnalignedCheckpointsEnabled() {
 		return isUnalignedCheckpointsEnabled;
+	}
+
+	public Properties getProperties() {
+		return properties;
 	}
 
 	@Override
@@ -223,6 +233,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		private boolean isPreferCheckpointForRecovery = true;
 		private int tolerableCheckpointFailureNumber;
 		private boolean isUnalignedCheckpointsEnabled;
+		private Properties properties;
 
 		public CheckpointCoordinatorConfiguration build() {
 			return new CheckpointCoordinatorConfiguration(
@@ -234,7 +245,8 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 				isExactlyOnce,
 				isPreferCheckpointForRecovery,
 				tolerableCheckpointFailureNumber,
-				isUnalignedCheckpointsEnabled
+				isUnalignedCheckpointsEnabled,
+				properties
 			);
 		}
 
@@ -280,6 +292,11 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 
 		public CheckpointCoordinatorConfigurationBuilder setUnalignedCheckpointsEnabled(boolean unalignedCheckpointsEnabled) {
 			isUnalignedCheckpointsEnabled = unalignedCheckpointsEnabled;
+			return this;
+		}
+
+		public CheckpointCoordinatorConfigurationBuilder setProperties(Properties properties) {
+			this.properties = properties;
 			return this;
 		}
 	}

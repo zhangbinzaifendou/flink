@@ -22,6 +22,7 @@ import org.apache.flink.configuration.Configuration;
 
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Command line options to configure the SQL client. Arguments that have not been specified
@@ -38,6 +39,7 @@ public class CliOptions {
 	private final String updateStatement;
 	private final String historyFilePath;
 	private final Configuration pythonConfiguration;
+	private final Map<String, String> map;
 
 	public CliOptions(
 			boolean isPrintHelp,
@@ -49,6 +51,29 @@ public class CliOptions {
 			String updateStatement,
 			String historyFilePath,
 			Configuration pythonConfiguration) {
+		this(isPrintHelp,
+			sessionId,
+			environment,
+			defaults,
+			jars,
+			libraryDirs,
+			updateStatement,
+			historyFilePath,
+			pythonConfiguration,
+			null);
+	}
+
+	public CliOptions(
+		boolean isPrintHelp,
+		String sessionId,
+		URL environment,
+		URL defaults,
+		List<URL> jars,
+		List<URL> libraryDirs,
+		String updateStatement,
+		String historyFilePath,
+		Configuration pythonConfiguration,
+		Map<String, String> map) {
 		this.isPrintHelp = isPrintHelp;
 		this.sessionId = sessionId;
 		this.environment = environment;
@@ -58,6 +83,7 @@ public class CliOptions {
 		this.updateStatement = updateStatement;
 		this.historyFilePath = historyFilePath;
 		this.pythonConfiguration = pythonConfiguration;
+		this.map = map;
 	}
 
 	public boolean isPrintHelp() {
@@ -94,5 +120,9 @@ public class CliOptions {
 
 	public Configuration getPythonConfiguration() {
 		return pythonConfiguration;
+	}
+
+	public Map<String, String> getMap() {
+		return map;
 	}
 }

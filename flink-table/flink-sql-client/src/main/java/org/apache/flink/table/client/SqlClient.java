@@ -122,7 +122,7 @@ public class SqlClient {
 			executor.start();
 
 			// create CLI client with session environment
-			final Environment sessionEnv = readSessionEnvironment(options.getEnvironment());
+			final Environment sessionEnv = Environment.enrich(readSessionEnvironment(options.getEnvironment()), map);
 			appendPythonConfig(sessionEnv, options.getPythonConfiguration());
 			final SessionContext context;
 			if (options.getSessionId() == null) {
