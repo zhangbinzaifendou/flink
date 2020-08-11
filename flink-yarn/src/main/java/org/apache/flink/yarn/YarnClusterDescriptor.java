@@ -788,19 +788,22 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			LOG.info("Start add yarn.nodemanager.app.conf.properties.staging-dir for user " + UserGroupInformation.getCurrentUser().getShortUserName() + " on yarn.");
 			String flinkLib = System.getenv("FLINK_LIB_DIR");
 			File localLinkFilePath = new File(flinkLib + "/" + CONFIG_FILE_VIEWFS_NAME);
-			Path localFilePath = new Path(localLinkFilePath.getCanonicalPath());
-			String yarnNMStagingDir = "/home/yarn/staging/" + UserGroupInformation.getCurrentUser().getShortUserName() + "/.staging/flink_" + appId.toString().replace("application_", "");
-			Path remoteFilePath = fileSystem.makeQualified(new Path(yarnNMStagingDir + "/" + CONFIG_FILE_VIEWFS_NAME));
-			fileSystem.copyFromLocalFile(false, true, localFilePath, remoteFilePath);
-			fileSystem.setTimes(remoteFilePath, localLinkFilePath.lastModified(), -1);
-			LOG.info("add yarn.nodemanager.app.conf.properties.staging-dir for user " + UserGroupInformation.getCurrentUser().getShortUserName() + " on yarn finished.");
+			if (localLinkFilePath.getCanonicalFile().exists()) {
+				Path localFilePath = new Path(localLinkFilePath.getCanonicalPath());
+				String yarnNMStagingDir = "" + UserGroupInformation.getCurrentUser().getShortUserName() + "/.staging/flink_" + appId.toString().replace("application_", "");
+				Path remoteFilePath = fileSystem.makeQualified(new Path(yarnNMStagingDir + "/" + CONFIG_FILE_VIEWFS_NAME));
+				fileSystem.copyFromLocalFile(false, true, localFilePath, remoteFilePath);
+				fileSystem.setTimes(remoteFilePath, localLinkFilePath.lastModified(), -1);
+				LOG.info("add yarn.nodemanager.app.conf.properties.staging-dir for user " + UserGroupInformation.getCurrentUser().getShortUserName() + " on yarn finished.");
+				systemClassPaths.add(CONFIG_FILE_VIEWFS_NAME);
+			}
+
 		} catch (IOException e) {
 			LOG.error("Exception when add yarn.nodemanager.app.conf.properties.staging-dir for yarn", e);
 		}
 
 		systemClassPaths.add(CONFIG_FILE_HDFS_SITE_NAME);
 		systemClassPaths.add(CONFIG_FILE_CORE_SITE_NAME);
-		systemClassPaths.add(CONFIG_FILE_VIEWFS_NAME);
 
 		// normalize classpath by sorting
 		Collections.sort(systemClassPaths);
