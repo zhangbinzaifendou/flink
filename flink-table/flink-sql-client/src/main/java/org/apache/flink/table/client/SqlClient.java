@@ -42,6 +42,8 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -54,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.flink.table.client.config.entries.ConfigurationEntry.create;
 import static org.apache.flink.table.client.config.entries.ConfigurationEntry.merge;
 
@@ -166,29 +169,55 @@ public class SqlClient {
 
 			cli = new QihooCliClient(sessionId, executor, historyFilePath);
 			// interactive CLI mode
-			String savepointDir = options.getMap().get(SavepointConfigOptions.SAVEPOINT_PATH.key());
-			Properties properties = new Properties();
-			if (!StringUtils.isNullOrWhitespaceOnly(savepointDir) && (properties = paserSqlPropertiesFromSavePointMetaData(savepointDir)).size() > 0 ) {
-				String sql  = null;
-				Map<String, String> variables = new HashedMap();
-				List<String> functions = new ArrayList<>();
-				List<String> tables = new ArrayList<>();
-				List<String> uses = new ArrayList<>();
-				try {
-					// 0 parse use xxx
-					uses = (List<String>) properties.getOrDefault("flink.sql.uses", uses);
-					// 1 parse set execution variables
-					variables = (Map<String, String>) properties.getOrDefault("flink.sql.variables", variables);
-					// 2 parse function
-					functions = (List<String>) properties.getOrDefault("flink.sql.functions", functions);
-					// 3 parse create table
-					tables = (List<String>) properties.getOrDefault("flink.sql.tables", tables);
-					// 4 parse execution sql
-					sql = new String(Base64.getDecoder().decode(properties.getProperty("flink.sql.string")));
-				} catch (Exception e) {
-					throw new SqlClientException("parse sql from savepoint metadata error.", e);
-				}
-				cli.recoveryJobBySavepoint(uses, variables, functions, tables, sql);
+			String savepointDirs = options.getMap().get("savepoints");
+			if(!StringUtils.isNullOrWhitespaceOnly(savepointDirs)) {
+				final Configuration flinkConfig = (Configuration) PrivateUtil.getParentPrivateVar(
+					LocalExecutor.class,
+					"flinkConfig").get(executor);
+
+				final List<String>[] allUses = new List[]{new ArrayList<>()};
+				final List<String>[] allFunctions = new List[]{new ArrayList<>()};
+				final List<String>[] allTables = new List[]{new ArrayList<>()};
+				QihooCliClient finalCli = cli;
+				Arrays.stream(savepointDirs.split(",")).forEach(
+					savepointDir -> {
+						try {
+							Properties properties = new Properties();
+							flinkConfig.setString(SavepointConfigOptions.SAVEPOINT_PATH.key(), savepointDir);
+							flinkConfig.setBoolean(SavepointConfigOptions.SAVEPOINT_IGNORE_UNCLAIMED_STATE.key(), true);
+							if (!StringUtils.isNullOrWhitespaceOnly(savepointDir) && (properties = paserSqlPropertiesFromSavePointMetaData(savepointDir)).size() > 0) {
+								List<String> uses = new ArrayList<>();
+								Map<String, String> variables = new HashedMap();
+								List<String> functions = new ArrayList<>();
+								List<String> tables = new ArrayList<>();
+								String sql = null;
+								try {
+									// 0 parse use xxx
+									uses = (List<String>)properties.getOrDefault("flink.sql.uses", new ArrayList<>());
+									// 1 parse set execution variables
+									variables = (Map<String, String>) properties.getOrDefault("flink.sql.variables", new HashedMap());
+									// 2 parse function
+									functions = (List<String>) properties.getOrDefault("flink.sql.functions", new ArrayList<>());
+									// 3 parse create table
+									tables = (List<String>) properties.getOrDefault("flink.sql.tables", new ArrayList<>());
+									// 4 parse execution sql
+									sql = new String(Base64.getDecoder().decode(properties.getProperty("flink.sql.string")));
+								} catch (Exception e) {
+									throw new SqlClientException("parse sql from savepoint metadata error.", e);
+								}
+								List<String> usesReduce = uses.stream().filter(item -> !allUses[0].contains(item)).collect(toList());
+								List<String> functionssReduce = functions.stream().filter(item -> !allFunctions[0].contains(item)).collect(toList());
+								List<String> tablesReduce = tables.stream().filter(item -> !allTables[0].contains(item)).collect(toList());
+								finalCli.recoveryJobBySavepoint(usesReduce, variables, functionssReduce, tablesReduce, sql);
+								allUses[0] = uses;
+								allFunctions[0] = functions;
+								allTables[0] = tables;
+							}
+						} catch (Exception e) {
+							throw new SqlClientException(e.getMessage());
+						}
+					}
+				);
 			} else {
 				// interactive CLI mode
 				if (options.getUpdateStatement() == null) {
@@ -203,7 +232,7 @@ public class SqlClient {
 				}
 			}
 		} catch (Exception e) {
-			throw new SqlClientException(e.getMessage());
+			throw new SqlClientException(toStackTrace(e));
 		} finally {
 			if (cli != null) {
 				cli.close();
@@ -329,6 +358,19 @@ public class SqlClient {
 			ObjectInputStream ois = new ObjectInputStream(bais);
 		) {
 			return (Properties) ois.readObject();
+		}
+	}
+
+	public static String toStackTrace(Exception e)
+	{
+		StringWriter sw = new StringWriter();
+		PrintWriter pw = new PrintWriter(sw);
+
+		try{
+			e.printStackTrace(pw);
+			return sw.toString();
+		} catch(Exception e1) {
+			return "";
 		}
 	}
 }

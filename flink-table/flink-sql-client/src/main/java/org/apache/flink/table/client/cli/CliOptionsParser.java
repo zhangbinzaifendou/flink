@@ -26,8 +26,8 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.jobgraph.SavepointConfigOptions;
 import org.apache.flink.table.client.SqlClientException;
+import org.apache.flink.util.StringUtils;
 
 import java.io.File;
 import java.lang.reflect.InvocationTargetException;
@@ -285,16 +285,28 @@ public class CliOptionsParser {
 			CommandLine line = parser.parse(EMBEDDED_MODE_CLIENT_OPTIONS, args, true);
 			//get all --conf values
 			Map<String, String> map = new HashMap<String, String>();
+			StringBuilder stringBuilder = new StringBuilder();
 			map.putAll(line.getOptionProperties("conf").entrySet()
 				.stream()
 				.collect(Collectors.toMap(e -> e.getKey().toString().split("=")[0],
 					e -> e.getKey().toString().split("=")[1])));
 
-			// parse -S hdfs://xxx
-			String savepointDir = line.getOptionValue(CliOptionsParser.OPTION_SAVEPOINT.getOpt());
-			if (null != savepointDir) {
-				map.put(SavepointConfigOptions.SAVEPOINT_PATH.key(), savepointDir);
+
+			if (line.getOptionValues("savepoint") != null) {
+				Arrays.stream(line.getOptionValues("savepoint"))
+					.forEach( savepoint -> {
+						if(StringUtils.isNullOrWhitespaceOnly(savepoint)) {
+							throw new SqlClientException("savepoint path is null or empty");
+						}
+						stringBuilder.append(",").append(savepoint);
+					});
+
+				// parse -S hdfs://xxx
+				if (stringBuilder.length() > 0) {
+					map.put("savepoints", stringBuilder.substring(1));
+				}
 			}
+
 			return new CliOptions(
 				line.hasOption(CliOptionsParser.OPTION_HELP.getOpt()),
 				checkSessionId(line),
