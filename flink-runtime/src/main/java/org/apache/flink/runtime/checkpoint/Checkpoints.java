@@ -132,10 +132,12 @@ public class Checkpoints {
 
 		if (magicNumber == HEADER_MAGIC_NUMBER) {
 			final int version = in.readInt();
-			final int propsLen = in.readInt();
-			if (propsLen > 0) {
-				byte[] props = new byte[propsLen];
-				in.readFully(props);
+			if (version > 2) {
+				final int propsLen = in.readInt();
+				if (propsLen > 0) {
+					byte[] props = new byte[propsLen];
+					in.readFully(props);
+				}
 			}
 			final MetadataSerializer serializer = MetadataSerializers.getSerializer(version);
 			return serializer.deserialize(in, classLoader, externalPointer);
