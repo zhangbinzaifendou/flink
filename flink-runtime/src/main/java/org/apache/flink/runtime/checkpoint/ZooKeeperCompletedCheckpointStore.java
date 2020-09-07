@@ -22,10 +22,10 @@ import org.apache.flink.api.common.JobStatus;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.jobmanager.HighAvailabilityMode;
 import org.apache.flink.runtime.state.RetrievableStateHandle;
+import org.apache.flink.runtime.state.filesystem.FsCompletedCheckpointStorageLocation;
 import org.apache.flink.runtime.zookeeper.ZooKeeperStateHandleStore;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.function.ThrowingConsumer;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.ConcurrentModificationException;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.Executor;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -84,6 +85,8 @@ public class ZooKeeperCompletedCheckpointStore implements CompletedCheckpointSto
 	private final ArrayDeque<CompletedCheckpoint> completedCheckpoints;
 
 	private final Executor executor;
+
+	private Properties properties;
 
 	/**
 	 * Creates a {@link ZooKeeperCompletedCheckpointStore} instance.
@@ -269,6 +272,17 @@ public class ZooKeeperCompletedCheckpointStore implements CompletedCheckpointSto
 					completedCheckpoint -> completedCheckpoint.discardOnShutdown(jobStatus));
 			}
 
+			//TODO:added by qihoo,begin
+			if ((boolean) properties.getOrDefault("execution.checkpointing.resubmit-only-from-savepoint", false)) {
+				if (completedCheckpoints.getLast().getStorageLocation() instanceof FsCompletedCheckpointStorageLocation) {
+					FsCompletedCheckpointStorageLocation storageLocation = (FsCompletedCheckpointStorageLocation) completedCheckpoints.getLast().getStorageLocation();
+					if (storageLocation.getExclusiveCheckpointDir().getParent().toString().endsWith(completedCheckpoints.getLast().getJobId().toString())) {
+						storageLocation.disposeCheckpointDir(storageLocation.getExclusiveCheckpointDir().getParent());
+						LOG.info("delete checkpoint dir: " + storageLocation.getExclusiveCheckpointDir().getParent());
+					}
+				}
+			}
+			//TODO:added by qihoo,end
 			completedCheckpoints.clear();
 			checkpointsInZooKeeper.deleteChildren();
 		} else {
@@ -345,5 +359,9 @@ public class ZooKeeperCompletedCheckpointStore implements CompletedCheckpointSto
 				stateHandlePath.f1 + ". This indicates that the retrieved state handle is broken. Try cleaning the " +
 				"state handle store.", ioe);
 		}
+	}
+
+	public void setProperties(Properties properties) {
+		this.properties = properties;
 	}
 }

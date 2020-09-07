@@ -73,4 +73,11 @@ public class FsCompletedCheckpointStorageLocation implements CompletedCheckpoint
 		}
 		fs.delete(exclusiveCheckpointDir, false);
 	}
+
+	public void disposeCheckpointDir(Path checkpointDir) throws IOException {
+		if (fs == null) {
+			fs = checkpointDir.getFileSystem();
+		}
+		fs.delete(checkpointDir, true);
+	}
 }

@@ -233,7 +233,7 @@ public class CheckpointCoordinatorConfiguration implements Serializable {
 		private boolean isPreferCheckpointForRecovery = true;
 		private int tolerableCheckpointFailureNumber;
 		private boolean isUnalignedCheckpointsEnabled;
-		private Properties properties;
+		private Properties properties = new Properties();
 
 		public CheckpointCoordinatorConfiguration build() {
 			return new CheckpointCoordinatorConfiguration(

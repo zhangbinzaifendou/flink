@@ -790,7 +790,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			File localLinkFilePath = new File(flinkLib + "/" + CONFIG_FILE_VIEWFS_NAME);
 			if (localLinkFilePath.getCanonicalFile().exists()) {
 				Path localFilePath = new Path(localLinkFilePath.getCanonicalPath());
-				String yarnNMStagingDir = "" + UserGroupInformation.getCurrentUser().getShortUserName() + "/.staging/flink_" + appId.toString().replace("application_", "");
+				String yarnNMStagingDir = "/home/yarn/staging/" + UserGroupInformation.getCurrentUser().getShortUserName() + "/.staging/flink_" + appId.toString().replace("application_", "");
 				Path remoteFilePath = fileSystem.makeQualified(new Path(yarnNMStagingDir + "/" + CONFIG_FILE_VIEWFS_NAME));
 				fileSystem.copyFromLocalFile(false, true, localFilePath, remoteFilePath);
 				fileSystem.setTimes(remoteFilePath, localLinkFilePath.lastModified(), -1);
@@ -865,7 +865,7 @@ public class YarnClusterDescriptor implements ClusterDescriptor<ApplicationId> {
 			String flinkConfigKey = "flink-conf.yaml";
 			fileUploader.registerSingleLocalResource(
 				flinkConfigKey,
-				new Path(tmpConfigurationFile.getAbsolutePath()),
+				new Path(tmpConfigurationFile.toURI()),
 				"",
 				true,
 				true);

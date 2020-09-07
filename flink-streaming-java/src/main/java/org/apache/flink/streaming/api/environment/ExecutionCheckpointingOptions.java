@@ -143,4 +143,12 @@ public class ExecutionCheckpointingOptions {
 					TextElement.code(CheckpointingMode.EXACTLY_ONCE.toString()),
 					TextElement.code(MAX_CONCURRENT_CHECKPOINTS.key()))
 				.build());
+
+	public static final ConfigOption<Boolean> ENABLE_RESUBMIT_ONLY_FROM_SAVEPOINT =
+		ConfigOptions.key("execution.checkpointing.resubmit-only-from-savepoint")
+			.booleanType()
+			.defaultValue(false)
+			.withDescription(Description.builder()
+				.text("Enables resubmit only from savepoint, so If a job ends, the checkpoint directory will be removed")
+				.build());
 }

@@ -444,7 +444,9 @@ public class CheckpointConfig implements java.io.Serializable {
 	 * set properties
 	 */
 	public void setProperties(Properties properties) {
-		this.properties = properties;
+		for (Object key : properties.keySet()) {
+			this.properties.put(key.toString(), properties.get(key));
+		}
 	}
 
 	/**
@@ -534,5 +536,11 @@ public class CheckpointConfig implements java.io.Serializable {
 			.ifPresent(this::enableExternalizedCheckpoints);
 		configuration.getOptional(ExecutionCheckpointingOptions.ENABLE_UNALIGNED)
 			.ifPresent(this::enableUnalignedCheckpoints);
+		configuration.getOptional(ExecutionCheckpointingOptions.ENABLE_RESUBMIT_ONLY_FROM_SAVEPOINT)
+			.ifPresent(this::enableResubmitOnlyFromSavepoint);
+	}
+
+	private void enableResubmitOnlyFromSavepoint(Boolean enabled) {
+		properties.put("execution.checkpointing.resubmit-only-from-savepoint", enabled);
 	}
 }

@@ -398,7 +398,10 @@ public class CheckpointCoordinator {
 					CheckpointFailureReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
 				// clear queued requests and in-flight checkpoints
 				abortPendingAndQueuedCheckpoints(reason);
-
+				if (((boolean) properties.getOrDefault("execution.checkpointing.resubmit-only-from-savepoint", false)) &&
+						completedCheckpointStore instanceof ZooKeeperCompletedCheckpointStore) {
+					((ZooKeeperCompletedCheckpointStore) completedCheckpointStore).setProperties(properties);
+				}
 				completedCheckpointStore.shutdown(jobStatus);
 				checkpointIdCounter.shutdown(jobStatus);
 			}

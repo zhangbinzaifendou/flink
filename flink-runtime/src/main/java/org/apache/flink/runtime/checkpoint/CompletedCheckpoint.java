@@ -322,4 +322,8 @@ public class CompletedCheckpoint implements Serializable {
 	public String toString() {
 		return String.format("Checkpoint %d @ %d for %s", checkpointID, timestamp, job);
 	}
+
+	public CompletedCheckpointStorageLocation getStorageLocation() {
+		return storageLocation;
+	}
 }
