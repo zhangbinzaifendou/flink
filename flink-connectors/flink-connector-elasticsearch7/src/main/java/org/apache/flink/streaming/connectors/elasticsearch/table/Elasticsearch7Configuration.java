@@ -33,8 +33,8 @@ import static org.apache.flink.streaming.connectors.elasticsearch.table.Elastics
  * Elasticsearch 7 specific configuration.
  */
 @Internal
-final class Elasticsearch7Configuration extends ElasticsearchConfiguration {
-	Elasticsearch7Configuration(ReadableConfig config, ClassLoader classLoader) {
+public final class Elasticsearch7Configuration extends ElasticsearchConfiguration {
+	public Elasticsearch7Configuration(ReadableConfig config, ClassLoader classLoader) {
 		super(config, classLoader);
 	}
 

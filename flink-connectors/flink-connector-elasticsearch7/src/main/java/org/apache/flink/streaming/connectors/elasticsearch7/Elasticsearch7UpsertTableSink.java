@@ -215,7 +215,7 @@ public class Elasticsearch7UpsertTableSink extends ElasticsearchUpsertTableSinkB
 	 * Serializable {@link RestClientFactory} used by the sink.
 	 */
 	@VisibleForTesting
-	static class DefaultRestClientFactory implements RestClientFactory {
+	public static class DefaultRestClientFactory implements RestClientFactory {
 
 		private String pathPrefix;
 

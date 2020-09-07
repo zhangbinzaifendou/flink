@@ -48,7 +48,7 @@ import java.util.Objects;
  * description.
  */
 @Internal
-final class Elasticsearch7DynamicSink implements DynamicTableSink {
+public final class Elasticsearch7DynamicSink implements DynamicTableSink {
 	@VisibleForTesting
 	static final Elasticsearch7RequestFactory REQUEST_FACTORY = new Elasticsearch7DynamicSink.Elasticsearch7RequestFactory();
 
